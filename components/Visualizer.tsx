@@ -1,6 +1,12 @@
 import React, { useEffect, useRef } from 'react';
 
-export const Visualizer: React.FC<{ isGenerating: boolean }> = ({ isGenerating }) => {
+type VisualizerProps = {
+  isGenerating: boolean;
+  primaryColor: string;
+  secondaryColor: string;
+};
+
+export const Visualizer: React.FC<VisualizerProps> = ({ isGenerating, primaryColor, secondaryColor }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -23,26 +29,26 @@ export const Visualizer: React.FC<{ isGenerating: boolean }> = ({ isGenerating }
       const w = canvas.width;
       const h = canvas.height;
 
-      // Clear with trail effect
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.2)';
+      const background = ctx.createLinearGradient(0, 0, w, h);
+      background.addColorStop(0, '#020617');
+      background.addColorStop(0.58, '#0f172a');
+      background.addColorStop(1, '#020617');
+      ctx.fillStyle = background;
       ctx.fillRect(0, 0, w, h);
 
-      // Draw Grid/Horizon
-      ctx.strokeStyle = '#22d3ee';
+      ctx.globalAlpha = 0.26;
+      ctx.strokeStyle = primaryColor;
       ctx.lineWidth = 1;
       
       const horizon = h * 0.6;
       
-      // Moving Grid Lines
       ctx.beginPath();
       for (let i = 0; i < w; i += 40) {
-         // Perspective lines
          ctx.moveTo(w/2, horizon - 50);
          ctx.lineTo(i - (w/2) + (i*2), h);
       }
       ctx.stroke();
 
-      // Horizontal lines moving down
       const speed = isGenerating ? 4 : 1;
       const offset = (time * 50 * speed) % 50;
       
@@ -54,19 +60,21 @@ export const Visualizer: React.FC<{ isGenerating: boolean }> = ({ isGenerating }
            ctx.lineTo(w, yPos);
       }
       ctx.stroke();
+      ctx.globalAlpha = 1;
 
-      // Audio-reactive style bars (simulated)
       if (isGenerating) {
         const barCount = 28;
         const barWidth = w / barCount;
         for (let i = 0; i < barCount; i++) {
            const height = 16 + Math.abs(Math.sin(time * 5 + i * 0.7)) * 54 + Math.random() * 22;
-           ctx.fillStyle = i % 4 === 0 ? '#f59e0b' : '#14b8a6';
-           ctx.fillRect(i * barWidth, horizon - height, Math.max(2, barWidth - 3), height);
+           const barGradient = ctx.createLinearGradient(0, horizon - height, 0, horizon);
+           barGradient.addColorStop(0, i % 4 === 0 ? secondaryColor : primaryColor);
+           barGradient.addColorStop(1, 'rgba(15, 23, 42, 0.1)');
+           ctx.fillStyle = barGradient;
+           ctx.fillRect(i * barWidth + 2, horizon - height, Math.max(2, barWidth - 4), height);
         }
       } else {
-        // Idle waveform
-        ctx.strokeStyle = '#f59e0b';
+        ctx.strokeStyle = secondaryColor;
         ctx.lineWidth = 2;
         ctx.beginPath();
         for (let x = 0; x <= w; x += 8) {
@@ -83,7 +91,7 @@ export const Visualizer: React.FC<{ isGenerating: boolean }> = ({ isGenerating }
     draw();
 
     return () => cancelAnimationFrame(animationId);
-  }, [isGenerating]);
+  }, [isGenerating, primaryColor, secondaryColor]);
 
-  return <canvas ref={canvasRef} className="w-full h-64 rounded-lg border border-slate-800 shadow-[0_0_20px_rgba(20,184,166,0.18)]" />;
+  return <canvas ref={canvasRef} className="h-64 w-full rounded-lg border border-slate-800/90 bg-slate-950 shadow-2xl shadow-black/25" />;
 };

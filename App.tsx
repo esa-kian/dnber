@@ -12,6 +12,115 @@ type AppMode = 'ambient' | 'jungle' | 'liquid' | 'dancefloor' | 'jumpup' | 'neur
 
 const KEYS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
+const MODE_THEMES: Record<AppMode, {
+  label: string;
+  tag: string;
+  text: string;
+  solid: string;
+  button: string;
+  border: string;
+  shadow: string;
+  accent: string;
+  primary: string;
+  secondary: string;
+}> = {
+  ambient: {
+    label: 'Ambient DnB',
+    tag: 'Atmospheric',
+    text: 'text-cyan-200',
+    solid: 'bg-cyan-400',
+    button: 'bg-cyan-400 hover:bg-cyan-300 text-slate-950',
+    border: 'border-cyan-300',
+    shadow: 'shadow-cyan-500/20',
+    accent: 'accent-cyan-400',
+    primary: '#22d3ee',
+    secondary: '#67e8f9'
+  },
+  jungle: {
+    label: 'Jungle',
+    tag: 'Breaks',
+    text: 'text-emerald-200',
+    solid: 'bg-emerald-400',
+    button: 'bg-emerald-400 hover:bg-emerald-300 text-slate-950',
+    border: 'border-emerald-300',
+    shadow: 'shadow-emerald-500/20',
+    accent: 'accent-emerald-400',
+    primary: '#34d399',
+    secondary: '#a7f3d0'
+  },
+  liquid: {
+    label: 'Liquid',
+    tag: 'Melodic',
+    text: 'text-sky-200',
+    solid: 'bg-sky-400',
+    button: 'bg-sky-400 hover:bg-sky-300 text-slate-950',
+    border: 'border-sky-300',
+    shadow: 'shadow-sky-500/20',
+    accent: 'accent-sky-400',
+    primary: '#38bdf8',
+    secondary: '#bae6fd'
+  },
+  dancefloor: {
+    label: 'Dancefloor',
+    tag: 'Anthemic',
+    text: 'text-lime-200',
+    solid: 'bg-lime-300',
+    button: 'bg-lime-300 hover:bg-lime-200 text-slate-950',
+    border: 'border-lime-200',
+    shadow: 'shadow-lime-500/20',
+    accent: 'accent-lime-300',
+    primary: '#bef264',
+    secondary: '#f0fdf4'
+  },
+  jumpup: {
+    label: 'Jump Up',
+    tag: 'Bouncy',
+    text: 'text-rose-200',
+    solid: 'bg-rose-400',
+    button: 'bg-rose-400 hover:bg-rose-300 text-slate-950',
+    border: 'border-rose-300',
+    shadow: 'shadow-rose-500/20',
+    accent: 'accent-rose-400',
+    primary: '#fb7185',
+    secondary: '#fecdd3'
+  },
+  neurofunk: {
+    label: 'Neurofunk',
+    tag: 'Technical',
+    text: 'text-amber-200',
+    solid: 'bg-amber-400',
+    button: 'bg-amber-400 hover:bg-amber-300 text-slate-950',
+    border: 'border-amber-300',
+    shadow: 'shadow-amber-500/20',
+    accent: 'accent-amber-400',
+    primary: '#f59e0b',
+    secondary: '#fde68a'
+  }
+};
+
+const ENGINE_OPTIONS: { value: AppMode; label: string }[] = [
+  { value: 'ambient', label: 'Ambient DnB' },
+  { value: 'jungle', label: 'Jungle' },
+  { value: 'liquid', label: 'Liquid' },
+  { value: 'dancefloor', label: 'Dancefloor' },
+  { value: 'jumpup', label: 'Jump Up' },
+  { value: 'neurofunk', label: 'Neurofunk' },
+];
+
+function formatScale(scale: string): string {
+  if (scale === 'minor') return 'Natural Minor';
+  if (scale === 'dorian') return 'Dorian';
+  if (scale === 'phrygian') return 'Phrygian';
+  return 'Major';
+}
+
+function formatStyle(style: string): string {
+  return style
+    .split(/[\s_-]+/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
 const MusicNoteIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
 );
@@ -42,8 +151,9 @@ const SliderControl: React.FC<SliderControlProps> = ({
   onChange
 }) => (
   <div>
-    <label className="block text-sm font-medium text-slate-400 mb-2">
-      {label}: <span className="text-white">{displayValue ?? value}</span>
+    <label className="mb-2 flex items-center justify-between text-sm font-medium text-slate-400">
+      <span>{label}</span>
+      <span className="rounded-md border border-slate-700 bg-slate-950/70 px-2 py-0.5 text-xs text-slate-100">{displayValue ?? value}</span>
     </label>
     <input
       type="range"
@@ -52,7 +162,7 @@ const SliderControl: React.FC<SliderControlProps> = ({
       step={step}
       value={value}
       onChange={(e) => onChange(step ? parseFloat(e.target.value) : parseInt(e.target.value))}
-      className={`w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer ${accent}`}
+      className={`w-full h-2 rounded-lg bg-slate-800 appearance-none cursor-pointer ${accent}`}
     />
   </div>
 );
@@ -167,6 +277,8 @@ export default function App() {
   const activeBpm = mode === 'ambient' ? config.bpm : mode === 'jungle' ? jungleConfig.bpm : mode === 'liquid' ? liquidConfig.bpm : mode === 'dancefloor' ? dancefloorConfig.bpm : mode === 'jumpup' ? jumpUpConfig.bpm : neuroConfig.bpm;
   const activeRoot = mode === 'ambient' ? config.scaleRoot : mode === 'jungle' ? jungleConfig.scaleRoot : mode === 'liquid' ? liquidConfig.scaleRoot : mode === 'dancefloor' ? dancefloorConfig.scaleRoot : mode === 'jumpup' ? jumpUpConfig.scaleRoot : neuroConfig.scaleRoot;
   const activeScale = mode === 'ambient' ? config.scaleType : mode === 'jungle' ? jungleConfig.scaleType : mode === 'liquid' ? liquidConfig.scaleType : mode === 'dancefloor' ? dancefloorConfig.scaleType : mode === 'jumpup' ? jumpUpConfig.scaleType : neuroConfig.scaleType;
+  const activeStyle = mode === 'ambient' ? config.mood : mode === 'jungle' ? jungleConfig.style : mode === 'liquid' ? liquidConfig.style : mode === 'dancefloor' ? dancefloorConfig.style : mode === 'jumpup' ? jumpUpConfig.style : neuroConfig.style;
+  const modeTheme = MODE_THEMES[mode];
   const routing = mode === 'ambient'
     ? [
         ['Ch. 1', 'Evolving pads'],
@@ -236,50 +348,54 @@ export default function App() {
         : `neurofunk_${activeBpm}bpm_${activeRoot}${activeScale}_${neuroConfig.style}.mid`;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 p-4 md:p-8 font-sans selection:bg-cyan-500 selection:text-slate-950">
-      <div className="max-w-5xl mx-auto space-y-6">
-        <header className="flex items-center space-x-4">
-          <div className={`p-3 text-slate-950 rounded-lg shadow-lg ${
-            mode === 'ambient'
-              ? 'bg-cyan-500 shadow-cyan-500/20'
-              : mode === 'jungle'
-                ? 'bg-emerald-400 shadow-emerald-500/20'
-                : mode === 'liquid'
-                  ? 'bg-sky-400 shadow-sky-500/20'
-                  : mode === 'dancefloor'
-                    ? 'bg-lime-300 shadow-lime-500/20'
-                  : mode === 'jumpup'
-                    ? 'bg-rose-400 shadow-rose-500/20'
-                : 'bg-amber-400 shadow-amber-500/20'
-          }`}>
-            <MusicNoteIcon />
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold text-slate-50">Atmosphere</h1>
-            <p className="text-slate-400 text-sm">Ambient, jungle, liquid, dancefloor, jump up, and neurofunk MIDI composer</p>
+    <div className="min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#020617_0%,#0f172a_52%,#020617_100%)] p-4 font-sans text-slate-200 selection:bg-cyan-500 selection:text-slate-950 md:p-8">
+      <div className="mx-auto max-w-6xl space-y-6">
+        <header className="rounded-lg border border-slate-800/80 bg-slate-900/70 p-5 shadow-2xl shadow-black/20 backdrop-blur-sm md:p-6">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-4">
+              <div className={`rounded-lg p-3 text-slate-950 shadow-lg ${modeTheme.solid} ${modeTheme.shadow}`}>
+                <MusicNoteIcon />
+              </div>
+              <div>
+                <div className={`text-sm font-semibold ${modeTheme.text}`}>{modeTheme.tag}</div>
+                <h1 className="text-3xl font-bold text-slate-50">Atmosphere</h1>
+                <p className="text-sm text-slate-400">DnB MIDI composer</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {[
+                ['Engine', modeTheme.label],
+                ['Tempo', `${activeBpm} BPM`],
+                ['Key', `${activeRoot} ${formatScale(activeScale)}`],
+                ['Style', formatStyle(activeStyle)],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2">
+                  <div className="text-xs text-slate-500">{label}</div>
+                  <div className="truncate text-sm font-semibold text-slate-100">{value}</div>
+                </div>
+              ))}
+            </div>
           </div>
         </header>
 
-        <Visualizer isGenerating={status.isGenerating} />
+        <Visualizer isGenerating={status.isGenerating} primaryColor={modeTheme.primary} secondaryColor={modeTheme.secondary} />
 
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)] gap-6">
-          <div className="bg-slate-900/70 p-5 rounded-lg border border-slate-800 backdrop-blur-sm">
-            <h2 className={`text-xl font-semibold mb-5 ${
-              mode === 'ambient' ? 'text-cyan-200' : mode === 'jungle' ? 'text-emerald-200' : mode === 'liquid' ? 'text-sky-200' : mode === 'dancefloor' ? 'text-lime-200' : mode === 'jumpup' ? 'text-rose-200' : 'text-amber-200'
-            }`}>Session</h2>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.12fr)_minmax(320px,0.88fr)]">
+          <div className="rounded-lg border border-slate-800/80 bg-slate-900/80 p-5 shadow-2xl shadow-black/20 backdrop-blur-sm md:p-6">
+            <div className="mb-5 flex items-center justify-between">
+              <h2 className={`text-xl font-semibold ${modeTheme.text}`}>Session</h2>
+              <span className="hidden max-w-[52%] truncate rounded-md border border-slate-800 bg-slate-950/70 px-2 py-1 text-xs text-slate-400 sm:block">{downloadName}</span>
+            </div>
 
             <div className="space-y-5">
               <div>
                 <label className="block text-sm font-medium text-slate-400 mb-2">Engine</label>
-                <div className="grid grid-cols-2 lg:grid-cols-6 gap-2">
-                  {[
-                    { value: 'ambient' as AppMode, label: 'Ambient DnB' },
-                    { value: 'jungle' as AppMode, label: 'Jungle' },
-                    { value: 'liquid' as AppMode, label: 'Liquid' },
-                    { value: 'dancefloor' as AppMode, label: 'Dancefloor' },
-                    { value: 'jumpup' as AppMode, label: 'Jump Up' },
-                    { value: 'neurofunk' as AppMode, label: 'Neurofunk' },
-                  ].map(option => (
+                <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+                  {ENGINE_OPTIONS.map(option => {
+                    const optionTheme = MODE_THEMES[option.value];
+                    const selected = mode === option.value;
+                    return (
                     <button
                       key={option.value}
                       type="button"
@@ -287,25 +403,17 @@ export default function App() {
                         setMode(option.value);
                         setDownloadUrl(null);
                       }}
-                      className={`h-11 rounded-lg border text-sm font-semibold transition-colors ${
-                        mode === option.value
-                          ? option.value === 'ambient'
-                            ? 'border-cyan-300 bg-cyan-400 text-slate-950'
-                            : option.value === 'jungle'
-                              ? 'border-emerald-300 bg-emerald-400 text-slate-950'
-                              : option.value === 'liquid'
-                                ? 'border-sky-300 bg-sky-400 text-slate-950'
-                                : option.value === 'dancefloor'
-                                  ? 'border-lime-200 bg-lime-300 text-slate-950'
-                                : option.value === 'jumpup'
-                                  ? 'border-rose-300 bg-rose-400 text-slate-950'
-                              : 'border-amber-300 bg-amber-400 text-slate-950'
-                          : 'border-slate-700 bg-slate-950 text-slate-300 hover:border-slate-500'
+                      className={`min-h-14 rounded-lg border px-3 py-2 text-left transition-all ${
+                        selected
+                          ? `${optionTheme.border} ${optionTheme.solid} text-slate-950 shadow-lg ${optionTheme.shadow}`
+                          : 'border-slate-800 bg-slate-950/70 text-slate-300 hover:border-slate-600 hover:bg-slate-900'
                       }`}
                     >
-                      {option.label}
+                      <span className="block text-sm font-semibold">{option.label}</span>
+                      <span className={`mt-1 block text-xs ${selected ? 'text-slate-800' : optionTheme.text}`}>{optionTheme.tag}</span>
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
@@ -984,17 +1092,42 @@ export default function App() {
           </div>
 
           <div className="flex flex-col space-y-6">
-            <div className="bg-slate-900/70 p-5 rounded-lg border border-slate-800 flex-grow">
-              <h3 className="text-lg font-medium text-slate-200 mb-3">MIDI Routing</h3>
-              <div className="grid grid-cols-2 gap-2 text-sm">
+            <div className="rounded-lg border border-slate-800/80 bg-slate-900/80 p-5 shadow-2xl shadow-black/20">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-lg font-medium text-slate-200">MIDI Routing</h3>
+                <span className={`text-sm font-semibold ${modeTheme.text}`}>{modeTheme.label}</span>
+              </div>
+              <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
                 {routing.map(([channel, label]) => (
-                  <div key={`${channel}-${label}`} className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950 px-3 py-2">
-                    <span className={`font-semibold ${
-                      mode === 'ambient' ? 'text-cyan-200' : mode === 'jungle' ? 'text-emerald-200' : mode === 'liquid' ? 'text-sky-200' : mode === 'dancefloor' ? 'text-lime-200' : mode === 'jumpup' ? 'text-rose-200' : 'text-amber-200'
-                    }`}>{channel}</span>
+                  <div key={`${channel}-${label}`} className="flex min-h-11 items-center justify-between rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2">
+                    <span className={`font-semibold ${modeTheme.text}`}>{channel}</span>
                     <span className="text-slate-400 text-right">{label}</span>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-800/80 bg-slate-900/80 p-5 shadow-2xl shadow-black/20">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-lg font-medium text-slate-200">Output</h3>
+                <span className={`rounded-md border px-2 py-1 text-xs font-semibold ${
+                  status.isGenerating
+                    ? `${modeTheme.border} ${modeTheme.text}`
+                    : downloadUrl
+                      ? 'border-emerald-400 text-emerald-300'
+                      : 'border-slate-700 text-slate-400'
+                }`}>
+                  {status.isGenerating ? 'Generating' : downloadUrl ? 'Ready' : 'Idle'}
+                </span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-slate-800">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${modeTheme.solid}`}
+                  style={{ width: `${status.isGenerating || downloadUrl ? status.progress : 0}%` }}
+                />
+              </div>
+              <div className="mt-3 min-h-5 text-sm text-slate-400">
+                {status.message || downloadName}
               </div>
             </div>
 
@@ -1006,17 +1139,7 @@ export default function App() {
                 flex items-center justify-center space-x-2
                 ${status.isGenerating
                   ? 'bg-slate-700 cursor-wait text-slate-400'
-                  : mode === 'ambient'
-                    ? 'bg-cyan-400 hover:bg-cyan-300 hover:scale-[1.02] text-slate-950 shadow-cyan-500/20'
-                    : mode === 'jungle'
-                      ? 'bg-emerald-400 hover:bg-emerald-300 hover:scale-[1.02] text-slate-950 shadow-emerald-500/20'
-                    : mode === 'liquid'
-                      ? 'bg-sky-400 hover:bg-sky-300 hover:scale-[1.02] text-slate-950 shadow-sky-500/20'
-                    : mode === 'dancefloor'
-                      ? 'bg-lime-300 hover:bg-lime-200 hover:scale-[1.02] text-slate-950 shadow-lime-500/20'
-                      : mode === 'jumpup'
-                        ? 'bg-rose-400 hover:bg-rose-300 hover:scale-[1.02] text-slate-950 shadow-rose-500/20'
-                      : 'bg-amber-400 hover:bg-amber-300 hover:scale-[1.02] text-slate-950 shadow-amber-500/20'}
+                  : `${modeTheme.button} hover:scale-[1.02] ${modeTheme.shadow}`}
               `}
             >
               {status.isGenerating ? (
@@ -1040,17 +1163,11 @@ export default function App() {
 
             {downloadUrl && !status.isGenerating && (
               <a href={downloadUrl} download={downloadName} className="block w-full">
-                <button className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-lg font-semibold shadow-lg shadow-emerald-500/20 flex items-center justify-center space-x-2 transition-all">
+                <button className="w-full py-3 bg-emerald-400 hover:bg-emerald-300 text-slate-950 rounded-lg font-semibold shadow-lg shadow-emerald-500/20 flex items-center justify-center space-x-2 transition-all">
                   <DownloadIcon />
                   <span>Download MIDI File</span>
                 </button>
               </a>
-            )}
-
-            {status.message && (
-              <div className="text-center text-sm text-slate-500 animate-pulse">
-                {status.message}
-              </div>
             )}
           </div>
         </div>
