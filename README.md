@@ -1,8 +1,8 @@
 # Atmosphere: Ambient DnB MIDI Generator
 
-An open-source web app for generating ambient drum and bass MIDI sketches with evolving pads, sub/Reese bass, atmospheric plucks, and breakbeat percussion.
+An open-source web app for generating ambient drum and bass and neurofunk MIDI sketches.
 
-The generator creates separate MIDI tracks for pads, sub bass, Reese bass, atmosphere, and drums. Use the mood and realism controls to shape the arrangement before importing the `.mid` file into a DAW.
+The generator creates separate MIDI tracks for drums, bass, atmosphere, stabs, and FX. Use the controls to shape the arrangement before importing the `.mid` file into a DAW.
 
 ## What This App Makes
 
@@ -10,20 +10,37 @@ Atmosphere does not render finished audio by itself. It creates a `.mid` file, w
 
 You import that MIDI file into a music app like Ableton, Logic, GarageBand, FL Studio, Bitwig, Reaper, or Cubase. Then you choose the actual sounds: drums, bass synths, pads, and effects.
 
-Think of it as a sketch generator for ambient drum and bass ideas. It gives you the arrangement and musical movement; your DAW gives it sound design and mixing.
+Think of it as a sketch generator for DnB ideas. It gives you the arrangement and musical movement; your DAW gives it sound design and mixing.
 
 ## Quick Start
 
-1. Choose a mood.
-2. Pick a tempo and length.
-3. Leave the key and scale on the defaults if you are unsure.
-4. Adjust Breaks, Harmony, and Air if you want more or less detail.
-5. Click **Generate Composition**.
-6. Download the `.mid` file.
-7. Import the file into your DAW.
-8. Put sounds on each MIDI track.
+1. Choose an engine: **Ambient DnB** or **Neurofunk**.
+2. Choose a mood or style.
+3. Pick a tempo and length.
+4. Leave the key and scale on the defaults if you are unsure.
+5. Adjust the detail controls if you want more or less movement.
+6. Click **Generate Composition**.
+7. Download the `.mid` file.
+8. Import the file into your DAW.
+9. Put sounds on each MIDI track.
 
-## The Controls
+## Engines
+
+### Ambient DnB
+
+Ambient DnB creates smoother, spacious sketches with pads, sub bass, Reese bass, echo plucks, and clean breakbeat drums.
+
+Use this when you want liquid, deep, atmospheric, or floating DnB ideas.
+
+### Neurofunk
+
+Neurofunk creates tighter, more technical sketches with punchy drums, short root-centered bass phrases, pitch-bend movement, bass call-and-response, stabs, and risers.
+
+Important: the generator writes MIDI, not the actual growling bass sound. For neurofunk, the MIDI gives you the rhythm and note movement. The final sound depends heavily on the synth patch, distortion, filtering, resampling, and mixing you use in your DAW.
+
+Use this when you want a darker, more mechanical, bass-led DnB idea.
+
+## Ambient Controls
 
 ### Mood
 
@@ -93,9 +110,56 @@ Lower values keep the track more grounded. Higher values add more high notes, sh
 
 For ambient DnB, Air is usually nice around **70-90%**.
 
-## MIDI Tracks And Channels
+## Neurofunk Controls
 
-The generated file is split into tracks so you can assign different sounds in your DAW.
+### Style
+
+Style changes the kind of neurofunk phrase the generator writes.
+
+- **Rolling**: steady and usable, with strong two-bar bass phrases.
+- **Techstep**: sharper and more syncopated.
+- **Dark**: tense, sparse, and heavy.
+- **Minimal**: stripped back, darker, and more spacious.
+
+If you are unsure, start with **Techstep**.
+
+### Tempo
+
+Neurofunk usually works well around **168-178 BPM**. The default is **174 BPM**.
+
+### Scale Type
+
+Neurofunk often works best with darker scales.
+
+- **Phrygian**: tense and aggressive.
+- **Natural Minor**: dark but less harsh.
+- **Dorian**: a little smoother.
+
+### Drums
+
+Drums controls how forceful and busy the beat is.
+
+Lower values keep the rhythm cleaner. Higher values add more hats, ghost notes, open hats, and phrase-end fills.
+
+### Bass Motion
+
+Bass Motion controls how much the neuro bass phrase moves.
+
+Lower values stay closer to the root note. Higher values add more passing tones, stronger pitch bends, filter movement, and call-and-response between the two neuro bass tracks.
+
+### Tech
+
+Tech controls extra rhythmic detail.
+
+Lower values keep the phrase simpler. Higher values add more stutters, octave jabs, and tighter phrase variations.
+
+### Tension
+
+Tension controls stabs, risers, darker note choices, and FX movement.
+
+Raise it when you want the sketch to feel more dramatic. Lower it when you want more room for your own production.
+
+## Ambient MIDI Routing
 
 | MIDI Channel | Track | Suggested Sound |
 | --- | --- | --- |
@@ -105,26 +169,40 @@ The generated file is split into tracks so you can assign different sounds in yo
 | 4 | Reese Bass | Wide bass synth, detuned saw bass, darker mid bass |
 | 10 | Break Kit | Drum rack, breakbeat kit, acoustic/electronic drum kit |
 
-Channel 10 is the standard MIDI drum channel in many DAWs and sound modules.
+## Neurofunk MIDI Routing
+
+| MIDI Channel | Track | Suggested Sound |
+| --- | --- | --- |
+| 1 | Stabs | Short brass stab, distorted synth hit, metallic chord |
+| 2 | Sub Weight | Clean sine/sub bass under the main bass phrase |
+| 5 | Bass Main | Main growl, FM bass, wavetable bass, distorted saw bass |
+| 6 | Bass Response | Second bass patch for call-and-response movement |
+| 7 | FX Risers | Noise riser, tonal FX, glassy sweep, impact layer |
+| 10 | Tight Drums | Punchy DnB kit, layered kick/snare, tight hats |
 
 ## How To Make It Sound More Finished
 
 After importing the MIDI, the biggest improvement comes from choosing good sounds.
 
-For pads, use a soft synth sound with long attack and plenty of reverb. For sub bass, use a clean low sound and keep it simple. For Reese bass, use something wider and dirtier, but keep it quieter than the sub. For drums, try a breakbeat-style kit or slice the drum MIDI into your favorite drum rack.
+For ambient pads, use a soft synth sound with long attack and plenty of reverb. For sub bass, use a clean low sound and keep it simple. For Reese bass, use something wider and dirtier, but keep it quieter than the sub. For drums, try a breakbeat-style kit or slice the drum MIDI into your favorite drum rack.
 
-Add reverb and delay to the pads and plucks. Keep the sub bass mostly dry. Add compression or saturation to the drums if they feel too flat.
+For neurofunk bass, use a synth patch with movement: wavetable, FM, formant, comb filtering, distortion, or automated filter cutoff. Put different sounds on Bass Main and Bass Response so the phrase talks back and forth. The MIDI includes pitch bend, mod wheel, filter cutoff, and resonance automation cues. Keep the Sub Weight track clean and centered underneath them.
+
+Add reverb and delay to pads, plucks, stabs, and FX. Keep the sub bass mostly dry. Add compression or saturation to the drums if they feel too flat.
 
 ## Good Beginner Settings
 
 Try these combinations:
 
-| Goal | Mood | Scale | Breaks | Harmony | Air |
-| --- | --- | --- | --- | --- | --- |
-| Smooth liquid | Liquid | Dorian | 58% | 70% | 80% |
-| Dark ambient | Dark | Phrygian | 55% | 60% | 85% |
-| Deep roller | Deep | Natural Minor | 65% | 55% | 65% |
-| Floating intro | Ethereal | Major or Dorian | 35% | 65% | 95% |
+| Goal | Engine | Style/Mood | Scale | Main Controls |
+| --- | --- | --- | --- | --- |
+| Smooth liquid | Ambient | Liquid | Dorian | Breaks 58%, Harmony 70%, Air 80% |
+| Dark ambient | Ambient | Dark | Phrygian | Breaks 55%, Harmony 60%, Air 85% |
+| Deep roller | Ambient | Deep | Natural Minor | Breaks 65%, Harmony 55%, Air 65% |
+| Floating intro | Ambient | Ethereal | Major or Dorian | Breaks 35%, Harmony 65%, Air 95% |
+| Hard techstep neuro | Neurofunk | Techstep | Phrygian | Drums 82%, Bass Motion 88%, Tech 78%, Tension 82% |
+| Sparse dark neuro | Neurofunk | Dark | Natural Minor | Drums 62%, Bass Motion 58%, Tech 45%, Tension 82% |
+| Clean neuro roller | Neurofunk | Rolling | Phrygian | Drums 74%, Bass Motion 78%, Tech 62%, Tension 74% |
 
 ## A Tiny Music Theory Cheat Sheet
 

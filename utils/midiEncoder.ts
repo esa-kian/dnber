@@ -35,7 +35,7 @@ function clampInt(value: number, min: number, max: number): number {
 
 function eventPriority(type: number): number {
   if (type === 0xFF) return 0;
-  if (type === 0xC0 || type === 0xB0) return 1;
+  if (type === 0xC0 || type === 0xB0 || type === 0xE0) return 1;
   if (type === 0x80) return 2;
   if (type === 0x90) return 3;
   return 4;
@@ -96,6 +96,17 @@ export class MidiFile {
       type: 0xC0,
       channel,
       param1: clampInt(program, 0, 127)
+    });
+  }
+
+  addPitchBend(track: MidiTrack, channel: number, value: number, startTick: number = 0) {
+    const bend = clampInt(value + 8192, 0, 16383);
+    track.events.push({
+      deltaTime: clampInt(startTick, 0, Number.MAX_SAFE_INTEGER),
+      type: 0xE0,
+      channel,
+      param1: bend & 0x7F,
+      param2: (bend >> 7) & 0x7F
     });
   }
 

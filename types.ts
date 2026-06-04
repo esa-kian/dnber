@@ -17,6 +17,18 @@ export interface GeneratorConfig {
   atmosphere: number; // 0-1
 }
 
+export interface NeurofunkConfig {
+  bpm: number;
+  lengthMinutes: number;
+  scaleRoot: string;
+  scaleType: 'minor' | 'dorian' | 'phrygian';
+  style: 'rolling' | 'techstep' | 'dark' | 'minimal';
+  drumPressure: number; // 0-1
+  bassMotion: number; // 0-1
+  technicality: number; // 0-1
+  tension: number; // 0-1
+}
+
 export interface MidiEvent {
   deltaTime: number;
   type: number;
