@@ -29,6 +29,18 @@ export interface NeurofunkConfig {
   tension: number; // 0-1
 }
 
+export interface JungleConfig {
+  bpm: number;
+  lengthMinutes: number;
+  scaleRoot: string;
+  scaleType: 'minor' | 'dorian' | 'phrygian' | 'major';
+  style: 'classic' | 'ragga' | 'darkside' | 'atmospheric';
+  breakEnergy: number; // 0-1
+  chopComplexity: number; // 0-1
+  bassWeight: number; // 0-1
+  dubSpace: number; // 0-1
+}
+
 export interface MidiEvent {
   deltaTime: number;
   type: number;

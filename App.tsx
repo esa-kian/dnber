@@ -1,10 +1,11 @@
 import React, { useState, useCallback } from 'react';
-import { GeneratorConfig, GenerationStatus, NeurofunkConfig } from './types';
+import { GeneratorConfig, GenerationStatus, JungleConfig, NeurofunkConfig } from './types';
 import { generateAmbientDnB } from './services/generator';
+import { generateJungle } from './services/jungleGenerator';
 import { generateNeurofunk } from './services/neurofunkGenerator';
 import { Visualizer } from './components/Visualizer';
 
-type AppMode = 'ambient' | 'neurofunk';
+type AppMode = 'ambient' | 'jungle' | 'neurofunk';
 
 const KEYS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
@@ -76,6 +77,17 @@ export default function App() {
     technicality: 0.78,
     tension: 0.82
   });
+  const [jungleConfig, setJungleConfig] = useState<JungleConfig>({
+    bpm: 164,
+    lengthMinutes: 8,
+    scaleRoot: 'F',
+    scaleType: 'minor',
+    style: 'classic',
+    breakEnergy: 0.86,
+    chopComplexity: 0.72,
+    bassWeight: 0.82,
+    dubSpace: 0.62
+  });
 
   const [status, setStatus] = useState<GenerationStatus>({
     isGenerating: false,
@@ -92,7 +104,9 @@ export default function App() {
       await new Promise(resolve => setTimeout(resolve, 100));
       const midiBytes = mode === 'ambient'
         ? await generateAmbientDnB(config, setStatus)
-        : await generateNeurofunk(neuroConfig, setStatus);
+        : mode === 'jungle'
+          ? await generateJungle(jungleConfig, setStatus)
+          : await generateNeurofunk(neuroConfig, setStatus);
 
       const blob = new Blob([midiBytes], { type: 'audio/midi' });
       const url = URL.createObjectURL(blob);
@@ -102,11 +116,11 @@ export default function App() {
       console.error(e);
       setStatus({ isGenerating: false, progress: 0, message: 'Error generating MIDI' });
     }
-  }, [config, mode, neuroConfig]);
+  }, [config, jungleConfig, mode, neuroConfig]);
 
-  const activeBpm = mode === 'ambient' ? config.bpm : neuroConfig.bpm;
-  const activeRoot = mode === 'ambient' ? config.scaleRoot : neuroConfig.scaleRoot;
-  const activeScale = mode === 'ambient' ? config.scaleType : neuroConfig.scaleType;
+  const activeBpm = mode === 'ambient' ? config.bpm : mode === 'jungle' ? jungleConfig.bpm : neuroConfig.bpm;
+  const activeRoot = mode === 'ambient' ? config.scaleRoot : mode === 'jungle' ? jungleConfig.scaleRoot : neuroConfig.scaleRoot;
+  const activeScale = mode === 'ambient' ? config.scaleType : mode === 'jungle' ? jungleConfig.scaleType : neuroConfig.scaleType;
   const routing = mode === 'ambient'
     ? [
         ['Ch. 1', 'Evolving pads'],
@@ -116,7 +130,16 @@ export default function App() {
         ['Ch. 10', 'Break kit'],
         ['Tempo', `${config.bpm} BPM`],
       ]
-    : [
+    : mode === 'jungle'
+      ? [
+        ['Ch. 1', 'Pads'],
+        ['Ch. 2', 'Dub sub'],
+        ['Ch. 3', 'Rave/dub stabs'],
+        ['Ch. 4', 'FX sirens'],
+        ['Ch. 10', 'Chopped breaks'],
+        ['Tempo', `${jungleConfig.bpm} BPM`],
+      ]
+      : [
         ['Ch. 1', 'Stabs'],
         ['Ch. 2', 'Sub weight'],
         ['Ch. 5', 'Bass main'],
@@ -126,18 +149,26 @@ export default function App() {
       ];
   const downloadName = mode === 'ambient'
     ? `atmosphere_dnb_${activeBpm}bpm_${activeRoot}${activeScale}.mid`
-    : `neurofunk_${activeBpm}bpm_${activeRoot}${activeScale}_${neuroConfig.style}.mid`;
+    : mode === 'jungle'
+      ? `jungle_${activeBpm}bpm_${activeRoot}${activeScale}_${jungleConfig.style}.mid`
+      : `neurofunk_${activeBpm}bpm_${activeRoot}${activeScale}_${neuroConfig.style}.mid`;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 p-4 md:p-8 font-sans selection:bg-cyan-500 selection:text-slate-950">
       <div className="max-w-5xl mx-auto space-y-6">
         <header className="flex items-center space-x-4">
-          <div className={`p-3 text-slate-950 rounded-lg shadow-lg ${mode === 'ambient' ? 'bg-cyan-500 shadow-cyan-500/20' : 'bg-amber-400 shadow-amber-500/20'}`}>
+          <div className={`p-3 text-slate-950 rounded-lg shadow-lg ${
+            mode === 'ambient'
+              ? 'bg-cyan-500 shadow-cyan-500/20'
+              : mode === 'jungle'
+                ? 'bg-emerald-400 shadow-emerald-500/20'
+                : 'bg-amber-400 shadow-amber-500/20'
+          }`}>
             <MusicNoteIcon />
           </div>
           <div>
             <h1 className="text-3xl font-bold text-slate-50">Atmosphere</h1>
-            <p className="text-slate-400 text-sm">Ambient and neurofunk MIDI composer</p>
+            <p className="text-slate-400 text-sm">Ambient, jungle, and neurofunk MIDI composer</p>
           </div>
         </header>
 
@@ -145,14 +176,17 @@ export default function App() {
 
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)] gap-6">
           <div className="bg-slate-900/70 p-5 rounded-lg border border-slate-800 backdrop-blur-sm">
-            <h2 className={`text-xl font-semibold mb-5 ${mode === 'ambient' ? 'text-cyan-200' : 'text-amber-200'}`}>Session</h2>
+            <h2 className={`text-xl font-semibold mb-5 ${
+              mode === 'ambient' ? 'text-cyan-200' : mode === 'jungle' ? 'text-emerald-200' : 'text-amber-200'
+            }`}>Session</h2>
 
             <div className="space-y-5">
               <div>
                 <label className="block text-sm font-medium text-slate-400 mb-2">Engine</label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {[
                     { value: 'ambient' as AppMode, label: 'Ambient DnB' },
+                    { value: 'jungle' as AppMode, label: 'Jungle' },
                     { value: 'neurofunk' as AppMode, label: 'Neurofunk' },
                   ].map(option => (
                     <button
@@ -164,9 +198,11 @@ export default function App() {
                       }}
                       className={`h-11 rounded-lg border text-sm font-semibold transition-colors ${
                         mode === option.value
-                          ? mode === 'ambient'
+                          ? option.value === 'ambient'
                             ? 'border-cyan-300 bg-cyan-400 text-slate-950'
-                            : 'border-amber-300 bg-amber-400 text-slate-950'
+                            : option.value === 'jungle'
+                              ? 'border-emerald-300 bg-emerald-400 text-slate-950'
+                              : 'border-amber-300 bg-amber-400 text-slate-950'
                           : 'border-slate-700 bg-slate-950 text-slate-300 hover:border-slate-500'
                       }`}
                     >
@@ -277,6 +313,120 @@ export default function App() {
                       accent="accent-cyan-400"
                       displayValue={`${Math.round(config.atmosphere * 100)}%`}
                       onChange={(atmosphere) => setConfig({...config, atmosphere})}
+                    />
+                  </div>
+                </>
+              ) : mode === 'jungle' ? (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-400 mb-2">Style</label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {[
+                        { value: 'classic', label: 'Classic' },
+                        { value: 'ragga', label: 'Ragga' },
+                        { value: 'darkside', label: 'Darkside' },
+                        { value: 'atmospheric', label: 'Atmospheric' },
+                      ].map(option => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => setJungleConfig({...jungleConfig, style: option.value as JungleConfig['style']})}
+                          className={`h-10 rounded-lg border text-sm font-semibold transition-colors ${
+                            jungleConfig.style === option.value
+                              ? 'border-emerald-300 bg-emerald-400 text-slate-950'
+                              : 'border-slate-700 bg-slate-950 text-slate-300 hover:border-slate-500'
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <SliderControl
+                    label="Tempo (BPM)"
+                    value={jungleConfig.bpm}
+                    min={150}
+                    max={170}
+                    accent="accent-emerald-400"
+                    onChange={(bpm) => setJungleConfig({...jungleConfig, bpm})}
+                  />
+
+                  <SliderControl
+                    label="Length (Minutes)"
+                    value={jungleConfig.lengthMinutes}
+                    min={1}
+                    max={45}
+                    accent="accent-emerald-400"
+                    onChange={(lengthMinutes) => setJungleConfig({...jungleConfig, lengthMinutes})}
+                  />
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-400 mb-2">Key</label>
+                      <select
+                        value={jungleConfig.scaleRoot}
+                        onChange={(e) => setJungleConfig({...jungleConfig, scaleRoot: e.target.value})}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                      >
+                        {KEYS.map(note => <option key={note} value={note}>{note}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-400 mb-2">Scale Type</label>
+                      <select
+                        value={jungleConfig.scaleType}
+                        onChange={(e) => setJungleConfig({...jungleConfig, scaleType: e.target.value as JungleConfig['scaleType']})}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                      >
+                        <option value="minor">Natural Minor</option>
+                        <option value="dorian">Dorian</option>
+                        <option value="phrygian">Phrygian (Dark)</option>
+                        <option value="major">Major</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                    <SliderControl
+                      label="Breaks"
+                      value={jungleConfig.breakEnergy}
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      accent="accent-emerald-400"
+                      displayValue={`${Math.round(jungleConfig.breakEnergy * 100)}%`}
+                      onChange={(breakEnergy) => setJungleConfig({...jungleConfig, breakEnergy})}
+                    />
+                    <SliderControl
+                      label="Chops"
+                      value={jungleConfig.chopComplexity}
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      accent="accent-emerald-400"
+                      displayValue={`${Math.round(jungleConfig.chopComplexity * 100)}%`}
+                      onChange={(chopComplexity) => setJungleConfig({...jungleConfig, chopComplexity})}
+                    />
+                    <SliderControl
+                      label="Sub"
+                      value={jungleConfig.bassWeight}
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      accent="accent-emerald-400"
+                      displayValue={`${Math.round(jungleConfig.bassWeight * 100)}%`}
+                      onChange={(bassWeight) => setJungleConfig({...jungleConfig, bassWeight})}
+                    />
+                    <SliderControl
+                      label="Dub Space"
+                      value={jungleConfig.dubSpace}
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      accent="accent-emerald-400"
+                      displayValue={`${Math.round(jungleConfig.dubSpace * 100)}%`}
+                      onChange={(dubSpace) => setJungleConfig({...jungleConfig, dubSpace})}
                     />
                   </div>
                 </>
@@ -403,7 +553,9 @@ export default function App() {
               <div className="grid grid-cols-2 gap-2 text-sm">
                 {routing.map(([channel, label]) => (
                   <div key={`${channel}-${label}`} className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950 px-3 py-2">
-                    <span className={`font-semibold ${mode === 'ambient' ? 'text-cyan-200' : 'text-amber-200'}`}>{channel}</span>
+                    <span className={`font-semibold ${
+                      mode === 'ambient' ? 'text-cyan-200' : mode === 'jungle' ? 'text-emerald-200' : 'text-amber-200'
+                    }`}>{channel}</span>
                     <span className="text-slate-400 text-right">{label}</span>
                   </div>
                 ))}
@@ -420,13 +572,21 @@ export default function App() {
                   ? 'bg-slate-700 cursor-wait text-slate-400'
                   : mode === 'ambient'
                     ? 'bg-cyan-400 hover:bg-cyan-300 hover:scale-[1.02] text-slate-950 shadow-cyan-500/20'
-                    : 'bg-amber-400 hover:bg-amber-300 hover:scale-[1.02] text-slate-950 shadow-amber-500/20'}
+                    : mode === 'jungle'
+                      ? 'bg-emerald-400 hover:bg-emerald-300 hover:scale-[1.02] text-slate-950 shadow-emerald-500/20'
+                      : 'bg-amber-400 hover:bg-amber-300 hover:scale-[1.02] text-slate-950 shadow-amber-500/20'}
               `}
             >
               {status.isGenerating ? (
                 <span>Generating... {status.progress}%</span>
               ) : (
-                <span>{mode === 'ambient' ? 'Generate Ambient Composition' : 'Generate Neurofunk Composition'}</span>
+                <span>{
+                  mode === 'ambient'
+                    ? 'Generate Ambient Composition'
+                    : mode === 'jungle'
+                      ? 'Generate Jungle Composition'
+                      : 'Generate Neurofunk Composition'
+                }</span>
               )}
             </button>
 
