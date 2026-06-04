@@ -18,7 +18,10 @@ export default function App() {
     lengthMinutes: 20,
     scaleRoot: 'F',
     scaleType: 'dorian',
-    complexity: 0.7
+    mood: 'liquid',
+    complexity: 0.72,
+    breakDensity: 0.58,
+    atmosphere: 0.82
   });
 
   const [status, setStatus] = useState<GenerationStatus>({
@@ -35,15 +38,14 @@ export default function App() {
 
     try {
       // Small delay to allow UI to update before heavy calculation
-      setTimeout(async () => {
-        const midiBytes = await generateAmbientDnB(config, setStatus);
-        
-        // Create Blob
-        const blob = new Blob([midiBytes], { type: 'audio/midi' });
-        const url = URL.createObjectURL(blob);
-        setDownloadUrl(url);
-        setStatus({ isGenerating: false, progress: 100, message: 'Ready to download' });
-      }, 100);
+      await new Promise(resolve => setTimeout(resolve, 100));
+      const midiBytes = await generateAmbientDnB(config, setStatus);
+
+      // Create Blob
+      const blob = new Blob([midiBytes], { type: 'audio/midi' });
+      const url = URL.createObjectURL(blob);
+      setDownloadUrl(url);
+      setStatus({ isGenerating: false, progress: 100, message: 'Ready to download' });
     } catch (e) {
       console.error(e);
       setStatus({ isGenerating: false, progress: 0, message: 'Error generating MIDI' });
@@ -51,19 +53,19 @@ export default function App() {
   }, [config]);
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-200 p-4 md:p-8 font-sans selection:bg-pink-500 selection:text-white">
-      <div className="max-w-4xl mx-auto space-y-8">
+    <div className="min-h-screen bg-slate-950 text-slate-200 p-4 md:p-8 font-sans selection:bg-cyan-500 selection:text-slate-950">
+      <div className="max-w-5xl mx-auto space-y-6">
         
         {/* Header */}
-        <header className="flex items-center space-x-4 mb-8">
-            <div className="p-3 bg-indigo-600 rounded-lg shadow-lg shadow-indigo-500/30">
+        <header className="flex items-center space-x-4">
+            <div className="p-3 bg-cyan-500 text-slate-950 rounded-lg shadow-lg shadow-cyan-500/20">
                 <MusicNoteIcon />
             </div>
             <div>
-                <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-pink-400">
+                <h1 className="text-3xl font-bold text-slate-50">
                     Atmosphere
                 </h1>
-                <p className="text-slate-400 text-sm">Ambient DnB Algorithmic Composer</p>
+                <p className="text-slate-400 text-sm">Ambient DnB MIDI composer</p>
             </div>
         </header>
 
@@ -71,13 +73,39 @@ export default function App() {
         <Visualizer isGenerating={status.isGenerating} />
 
         {/* Controls */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)] gap-6">
             
             {/* Left Column: Settings */}
-            <div className="bg-slate-800/50 p-6 rounded-xl border border-slate-700 backdrop-blur-sm">
-                <h2 className="text-xl font-semibold mb-6 text-indigo-300">Configuration</h2>
+            <div className="bg-slate-900/70 p-5 rounded-lg border border-slate-800 backdrop-blur-sm">
+                <h2 className="text-xl font-semibold mb-5 text-cyan-200">Session</h2>
                 
-                <div className="space-y-6">
+                <div className="space-y-5">
+                    {/* Mood */}
+                    <div>
+                        <label className="block text-sm font-medium text-slate-400 mb-2">Mood</label>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            {[
+                                { value: 'liquid', label: 'Liquid' },
+                                { value: 'deep', label: 'Deep' },
+                                { value: 'dark', label: 'Dark' },
+                                { value: 'ethereal', label: 'Ethereal' },
+                            ].map(option => (
+                                <button
+                                    key={option.value}
+                                    type="button"
+                                    onClick={() => setConfig({...config, mood: option.value as GeneratorConfig['mood']})}
+                                    className={`h-10 rounded-lg border text-sm font-semibold transition-colors ${
+                                        config.mood === option.value
+                                            ? 'border-cyan-300 bg-cyan-400 text-slate-950'
+                                            : 'border-slate-700 bg-slate-950 text-slate-300 hover:border-slate-500'
+                                    }`}
+                                >
+                                    {option.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
                     {/* BPM */}
                     <div>
                         <label className="block text-sm font-medium text-slate-400 mb-2">
@@ -87,7 +115,7 @@ export default function App() {
                             type="range" min="160" max="180" 
                             value={config.bpm}
                             onChange={(e) => setConfig({...config, bpm: parseInt(e.target.value)})}
-                            className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                            className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-400"
                         />
                     </div>
 
@@ -100,9 +128,8 @@ export default function App() {
                             type="range" min="1" max="60" 
                             value={config.lengthMinutes}
                             onChange={(e) => setConfig({...config, lengthMinutes: parseInt(e.target.value)})}
-                            className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                            className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-400"
                         />
-                        <p className="text-xs text-slate-500 mt-1">Warning: 60 mins might take a few seconds to process.</p>
                     </div>
 
                     {/* Scale */}
@@ -112,7 +139,7 @@ export default function App() {
                              <select 
                                 value={config.scaleRoot}
                                 onChange={(e) => setConfig({...config, scaleRoot: e.target.value})}
-                                className="w-full bg-slate-900 border border-slate-700 rounded-md p-2 text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                                className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white focus:ring-2 focus:ring-cyan-500 outline-none"
                              >
                                 {['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].map(n => (
                                     <option key={n} value={n}>{n}</option>
@@ -123,14 +150,51 @@ export default function App() {
                              <label className="block text-sm font-medium text-slate-400 mb-2">Scale Type</label>
                              <select 
                                 value={config.scaleType}
-                                onChange={(e) => setConfig({...config, scaleType: e.target.value as any})}
-                                className="w-full bg-slate-900 border border-slate-700 rounded-md p-2 text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                                onChange={(e) => setConfig({...config, scaleType: e.target.value as GeneratorConfig['scaleType']})}
+                                className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white focus:ring-2 focus:ring-cyan-500 outline-none"
                              >
                                 <option value="dorian">Dorian (Classic DnB)</option>
                                 <option value="minor">Natural Minor</option>
                                 <option value="phrygian">Phrygian (Dark)</option>
                                 <option value="major">Major (Liquid)</option>
                              </select>
+                        </div>
+                    </div>
+
+                    {/* Realism Controls */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-400 mb-2">
+                                Breaks: <span className="text-white">{Math.round(config.breakDensity * 100)}%</span>
+                            </label>
+                            <input
+                                type="range" min="0" max="1" step="0.01"
+                                value={config.breakDensity}
+                                onChange={(e) => setConfig({...config, breakDensity: parseFloat(e.target.value)})}
+                                className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-400 mb-2">
+                                Harmony: <span className="text-white">{Math.round(config.complexity * 100)}%</span>
+                            </label>
+                            <input
+                                type="range" min="0" max="1" step="0.01"
+                                value={config.complexity}
+                                onChange={(e) => setConfig({...config, complexity: parseFloat(e.target.value)})}
+                                className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-400 mb-2">
+                                Air: <span className="text-white">{Math.round(config.atmosphere * 100)}%</span>
+                            </label>
+                            <input
+                                type="range" min="0" max="1" step="0.01"
+                                value={config.atmosphere}
+                                onChange={(e) => setConfig({...config, atmosphere: parseFloat(e.target.value)})}
+                                className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+                            />
                         </div>
                     </div>
                 </div>
@@ -140,21 +204,23 @@ export default function App() {
             <div className="flex flex-col space-y-6">
                 
                 {/* Info Card */}
-                <div className="bg-slate-800/50 p-6 rounded-xl border border-slate-700 flex-grow">
-                    <h3 className="text-lg font-medium text-slate-200 mb-2">How to use</h3>
-                    <ul className="list-disc list-inside text-slate-400 space-y-2 text-sm">
-                        <li>Set your desired tempo and length.</li>
-                        <li>Click "Generate Composition".</li>
-                        <li>Import the <code className="bg-slate-900 px-1 rounded text-indigo-300">.mid</code> file into GarageBand / Logic / Ableton.</li>
-                        <li>Assign patches:
-                            <ul className="pl-6 mt-1 list-circle text-xs space-y-1">
-                                <li>Channel 1: Sub Bass / Reese</li>
-                                <li>Channel 2: Atmospheric Pads</li>
-                                <li>Channel 3: Plucks / Arps</li>
-                                <li>Channel 10: Drum Kit</li>
-                            </ul>
-                        </li>
-                    </ul>
+                <div className="bg-slate-900/70 p-5 rounded-lg border border-slate-800 flex-grow">
+                    <h3 className="text-lg font-medium text-slate-200 mb-3">MIDI Routing</h3>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                        {[
+                            ['Ch. 1', 'Evolving pads'],
+                            ['Ch. 2', 'Sub bass'],
+                            ['Ch. 3', 'Echo plucks'],
+                            ['Ch. 4', 'Reese bass'],
+                            ['Ch. 10', 'Break kit'],
+                            ['Tempo', `${config.bpm} BPM`],
+                        ].map(([channel, label]) => (
+                            <div key={`${channel}-${label}`} className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950 px-3 py-2">
+                                <span className="font-semibold text-cyan-200">{channel}</span>
+                                <span className="text-slate-400 text-right">{label}</span>
+                            </div>
+                        ))}
+                    </div>
                 </div>
 
                 {/* Generate Button */}
@@ -162,11 +228,11 @@ export default function App() {
                     onClick={handleGenerate}
                     disabled={status.isGenerating}
                     className={`
-                        w-full py-4 rounded-xl font-bold text-lg shadow-lg transition-all transform
+                        w-full py-4 rounded-lg font-bold text-lg shadow-lg transition-all transform
                         flex items-center justify-center space-x-2
                         ${status.isGenerating 
                             ? 'bg-slate-700 cursor-wait text-slate-400' 
-                            : 'bg-gradient-to-r from-indigo-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 hover:scale-[1.02] text-white shadow-indigo-500/25'}
+                            : 'bg-cyan-400 hover:bg-cyan-300 hover:scale-[1.02] text-slate-950 shadow-cyan-500/20'}
                     `}
                 >
                    {status.isGenerating ? (
@@ -183,7 +249,7 @@ export default function App() {
                         download={`atmosphere_dnb_${config.bpm}bpm_${config.scaleRoot}${config.scaleType}.mid`}
                         className="block w-full"
                     >
-                        <button className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold shadow-lg shadow-emerald-500/20 flex items-center justify-center space-x-2 transition-all">
+                        <button className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-lg font-semibold shadow-lg shadow-emerald-500/20 flex items-center justify-center space-x-2 transition-all">
                             <DownloadIcon />
                             <span>Download MIDI File</span>
                         </button>

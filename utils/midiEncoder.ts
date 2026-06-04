@@ -29,6 +29,18 @@ function variableLengthQuantity(number: number): number[] {
   return result;
 }
 
+function clampInt(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, Math.round(value)));
+}
+
+function eventPriority(type: number): number {
+  if (type === 0xFF) return 0;
+  if (type === 0xC0 || type === 0xB0) return 1;
+  if (type === 0x80) return 2;
+  if (type === 0x90) return 3;
+  return 4;
+}
+
 export class MidiFile {
   tracks: MidiTrack[] = [];
   ticksPerBeat: number;
@@ -45,21 +57,45 @@ export class MidiFile {
 
   // Helper to add Note On and Note Off pair
   addNote(track: MidiTrack, channel: number, pitch: number, velocity: number, startTick: number, durationTicks: number) {
+    const safeStartTick = clampInt(startTick, 0, Number.MAX_SAFE_INTEGER);
+    const safeDurationTicks = Math.max(1, clampInt(durationTicks, 1, Number.MAX_SAFE_INTEGER));
+    const safePitch = clampInt(pitch, 0, 127);
+    const safeVelocity = clampInt(velocity, 1, 127);
+
     // We insert events raw; sorting happens at build time
     track.events.push({
-      deltaTime: startTick, // Temporarily store absolute tick here
+      deltaTime: safeStartTick, // Temporarily store absolute tick here
       type: 0x90, // Note On
       channel,
-      param1: pitch,
-      param2: velocity
+      param1: safePitch,
+      param2: safeVelocity
     });
 
     track.events.push({
-      deltaTime: startTick + durationTicks, // Temporarily store absolute tick here
+      deltaTime: safeStartTick + safeDurationTicks, // Temporarily store absolute tick here
       type: 0x80, // Note Off
       channel,
-      param1: pitch,
+      param1: safePitch,
       param2: 0 // Velocity 0 for note off
+    });
+  }
+
+  addControlChange(track: MidiTrack, channel: number, controller: number, value: number, startTick: number = 0) {
+    track.events.push({
+      deltaTime: clampInt(startTick, 0, Number.MAX_SAFE_INTEGER),
+      type: 0xB0,
+      channel,
+      param1: clampInt(controller, 0, 127),
+      param2: clampInt(value, 0, 127)
+    });
+  }
+
+  addProgramChange(track: MidiTrack, channel: number, program: number, startTick: number = 0) {
+    track.events.push({
+      deltaTime: clampInt(startTick, 0, Number.MAX_SAFE_INTEGER),
+      type: 0xC0,
+      channel,
+      param1: clampInt(program, 0, 127)
     });
   }
 
@@ -88,7 +124,10 @@ export class MidiFile {
 
     for (const track of this.tracks) {
       // 1. Sort events by absolute time
-      track.events.sort((a, b) => a.deltaTime - b.deltaTime);
+      track.events.sort((a, b) => {
+        if (a.deltaTime !== b.deltaTime) return a.deltaTime - b.deltaTime;
+        return eventPriority(a.type) - eventPriority(b.type);
+      });
 
       const trackBytes: number[] = [];
       

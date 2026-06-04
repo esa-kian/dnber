@@ -11,7 +11,10 @@ export interface GeneratorConfig {
   lengthMinutes: number;
   scaleRoot: string;
   scaleType: 'minor' | 'dorian' | 'phrygian' | 'major';
+  mood: 'liquid' | 'deep' | 'dark' | 'ethereal';
   complexity: number; // 0-1
+  breakDensity: number; // 0-1
+  atmosphere: number; // 0-1
 }
 
 export interface MidiEvent {

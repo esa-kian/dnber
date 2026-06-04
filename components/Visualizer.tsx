@@ -28,7 +28,7 @@ export const Visualizer: React.FC<{ isGenerating: boolean }> = ({ isGenerating }
       ctx.fillRect(0, 0, w, h);
 
       // Draw Grid/Horizon
-      ctx.strokeStyle = '#38bdf8';
+      ctx.strokeStyle = '#22d3ee';
       ctx.lineWidth = 1;
       
       const horizon = h * 0.6;
@@ -57,22 +57,24 @@ export const Visualizer: React.FC<{ isGenerating: boolean }> = ({ isGenerating }
 
       // Audio-reactive style bars (simulated)
       if (isGenerating) {
-        const barCount = 20;
+        const barCount = 28;
         const barWidth = w / barCount;
-        ctx.fillStyle = '#c084fc';
         for (let i = 0; i < barCount; i++) {
-           const height = Math.sin(time * 5 + i) * 50 + Math.random() * 50;
-           ctx.fillRect(i * barWidth, horizon - height, barWidth - 2, height);
+           const height = 16 + Math.abs(Math.sin(time * 5 + i * 0.7)) * 54 + Math.random() * 22;
+           ctx.fillStyle = i % 4 === 0 ? '#f59e0b' : '#14b8a6';
+           ctx.fillRect(i * barWidth, horizon - height, Math.max(2, barWidth - 3), height);
         }
       } else {
-        // Idle ambient orb
-        const grad = ctx.createRadialGradient(w/2, horizon - 100, 10, w/2, horizon - 100, 100);
-        grad.addColorStop(0, '#f472b6');
-        grad.addColorStop(1, 'transparent');
-        ctx.fillStyle = grad;
+        // Idle waveform
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.arc(w/2, horizon - 100 + Math.sin(time)*20, 100, 0, Math.PI * 2);
-        ctx.fill();
+        for (let x = 0; x <= w; x += 8) {
+          const y = horizon - 90 + Math.sin(time * 2 + x * 0.018) * 20 + Math.sin(time * 0.8 + x * 0.045) * 12;
+          if (x === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
       }
 
       animationId = requestAnimationFrame(draw);
@@ -83,5 +85,5 @@ export const Visualizer: React.FC<{ isGenerating: boolean }> = ({ isGenerating }
     return () => cancelAnimationFrame(animationId);
   }, [isGenerating]);
 
-  return <canvas ref={canvasRef} className="w-full h-64 rounded-lg border border-slate-700 shadow-[0_0_20px_rgba(56,189,248,0.2)]" />;
+  return <canvas ref={canvasRef} className="w-full h-64 rounded-lg border border-slate-800 shadow-[0_0_20px_rgba(20,184,166,0.18)]" />;
 };

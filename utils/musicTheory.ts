@@ -12,10 +12,18 @@ export const ROOT_NOTES: Record<string, number> = {
 
 export const DRUM_MAPPING = {
   KICK: 36,
+  RIMSHOT: 37,
   SNARE: 38,
+  ELECTRIC_SNARE: 40,
+  LOW_TOM: 45,
+  MID_TOM: 47,
+  HIGH_TOM: 50,
   CLOSED_HH: 42,
+  PEDAL_HH: 44,
   OPEN_HH: 46,
+  CRASH: 49,
   RIDE: 51,
+  CHINA: 52,
   SHAKER: 70 // Arbitrary percussion
 };
 
