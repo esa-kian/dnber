@@ -65,6 +65,18 @@ export interface JumpUpConfig {
   hype: number; // 0-1
 }
 
+export interface DancefloorConfig {
+  bpm: number;
+  lengthMinutes: number;
+  scaleRoot: string;
+  scaleType: 'minor' | 'dorian' | 'major';
+  style: 'anthem' | 'festival' | 'vocal' | 'rave';
+  drumDrive: number; // 0-1
+  bassLift: number; // 0-1
+  hookSize: number; // 0-1
+  buildEnergy: number; // 0-1
+}
+
 export interface MidiEvent {
   deltaTime: number;
   type: number;

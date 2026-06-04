@@ -1,6 +1,6 @@
 # Atmosphere: DnB MIDI Generator
 
-An open-source web app for generating ambient drum and bass, jungle, liquid, jump up, and neurofunk MIDI sketches.
+An open-source web app for generating ambient drum and bass, jungle, liquid, dancefloor, jump up, and neurofunk MIDI sketches.
 
 The generator creates separate MIDI tracks for drums, bass, atmosphere, stabs, and FX. Use the controls to shape the arrangement before importing the `.mid` file into a DAW.
 
@@ -14,7 +14,7 @@ Think of it as a sketch generator for DnB ideas. It gives you the arrangement an
 
 ## Quick Start
 
-1. Choose an engine: **Ambient DnB**, **Jungle**, **Liquid**, **Jump Up**, or **Neurofunk**.
+1. Choose an engine: **Ambient DnB**, **Jungle**, **Liquid**, **Dancefloor**, **Jump Up**, or **Neurofunk**.
 2. Choose a mood or style.
 3. Pick a tempo and length.
 4. Leave the key and scale on the defaults if you are unsure.
@@ -47,6 +47,14 @@ Liquid creates cleaner, musical DnB sketches with rolling drums, warm keys, exte
 Important: Liquid depends on tasteful sound selection. Use clean drums, warm electric piano or piano, a controlled sub, and gentle reverb/delay rather than aggressive bass design.
 
 Use this when you want smooth, soulful, deep, or vocal liquid DnB ideas.
+
+### Dancefloor
+
+Dancefloor creates polished, hook-led DnB sketches with big clean drums, anthem chords, bright lead hooks, lifted Reese bass, clean sub, plucks, builds, risers, and clear drop sections.
+
+Important: Dancefloor works best when the hook is easy to understand and the mix has space. Use wide lead and chord sounds, but keep the sub clean and centered. The bass should lift the drop instead of fighting the vocal or main melody.
+
+Use this when you want anthem, festival, vocal, or rave-style dancefloor DnB ideas.
 
 ### Jump Up
 
@@ -216,6 +224,55 @@ Space controls pads, echoes, and reverb-friendly details.
 
 Raise it for wider, smoother liquid. Lower it for a tighter roller.
 
+## Dancefloor Controls
+
+### Style
+
+Style changes the hook and drop personality.
+
+- **Anthem**: big melodic hooks, clean chords, and a balanced drop.
+- **Festival**: brighter, more energetic phrases with stronger chord stabs.
+- **Vocal**: smoother call-and-response hooks that leave room for a vocal.
+- **Rave**: brighter lead movement, more plucks, and extra lift.
+
+If you are unsure, start with **Anthem**.
+
+### Tempo
+
+Dancefloor DnB usually works well around **168-178 BPM**. The default is **174 BPM**.
+
+### Scale Type
+
+Dancefloor can be dark, emotional, or uplifting.
+
+- **Natural Minor**: emotional and powerful, a strong default.
+- **Dorian**: smoother and a little less sad.
+- **Major**: brighter and more euphoric.
+
+### Drums
+
+Drums controls how punchy and busy the beat is.
+
+Lower values keep the drums cleaner and more spacious. Higher values add stronger kick/snare weight, more hats, and phrase-end fills.
+
+### Bass Lift
+
+Bass Lift controls the low-end energy and filter movement.
+
+Lower values keep the bass more restrained. Higher values make the Reese/saw bass move more and support a bigger drop.
+
+### Hook
+
+Hook controls lead melody, plucks, and chord emphasis.
+
+Lower values keep the sketch more instrumental and spacious. Higher values make the main lead more obvious and memorable.
+
+### Builds
+
+Builds controls risers, snare rolls, crashes, and pre-drop energy.
+
+Raise it for a bigger festival-style build. Lower it when you want a cleaner arrangement with less drama.
+
 ## Jump Up Controls
 
 ### Style
@@ -344,6 +401,18 @@ Raise it when you want the sketch to feel more dramatic. Lower it when you want 
 | 4 | Hooks and Plucks | Pluck, bell, vocal chop, soft lead |
 | 10 | Clean Rolling Drums | Tight DnB kit, clean break kit, light percussion |
 
+## Dancefloor MIDI Routing
+
+| MIDI Channel | Track | Suggested Sound |
+| --- | --- | --- |
+| 1 | Lead Hook | Supersaw lead, vocal-style lead, bright synth hook |
+| 2 | Clean Sub Bass | Clean sine/sub bass, centered low synth |
+| 3 | Anthem Chords | Supersaw chords, warm pad, bright chord stack |
+| 4 | Lifted Reese Bass | Reese bass, saw bass, wide mid bass |
+| 5 | Plucks and Arps | Pluck, bell, arpeggio synth, short bright layer |
+| 7 | Builds and FX | Riser, sweep, impact, uplifter, downlifter |
+| 10 | Polished Dancefloor Drums | Punchy DnB kit, clean layered kick/snare, crisp hats |
+
 ## Jump Up MIDI Routing
 
 | MIDI Channel | Track | Suggested Sound |
@@ -376,6 +445,8 @@ For jungle drums, use a breakbeat sampler or drum rack with kick, snare, hats, t
 
 For liquid, use cleaner drum sounds than jungle or neurofunk. Put an electric piano or warm piano on Keys and Chords, a clean sub on Liquid Sub, a soft pad on Warm Pads, and a gentle pluck or vocal chop on Hooks and Plucks. Reverb and delay should be present, but not so heavy that the groove disappears.
 
+For dancefloor, use polished and wide sounds. Put a supersaw or vocal-style synth on Lead Hook, wide chords on Anthem Chords, a clean centered bass on Clean Sub Bass, and a Reese or saw bass on Lifted Reese Bass. Sidechain the chords and bass to the kick in your DAW so the drop breathes.
+
 For jump up, keep the bass sounds short and obvious. Put a clean sub on Sub Punch, a memorable wobble patch on Wobble Bass Main, and a different bass patch on Bass Answer. The MIDI includes pitch bend, mod wheel, and filter cutoff cues, but the final character comes from your synth patch. Keep the drums punchy and less messy than jungle.
 
 For neurofunk bass, use a synth patch with movement: wavetable, FM, formant, comb filtering, distortion, or automated filter cutoff. Put different sounds on Bass Main and Bass Response so the phrase talks back and forth. The MIDI includes pitch bend, mod wheel, filter cutoff, and resonance automation cues. Keep the Sub Weight track clean and centered underneath them.
@@ -399,6 +470,9 @@ Try these combinations:
 | Smooth liquid | Liquid | Smooth | Dorian | Groove 72%, Bass Flow 74%, Melody 68%, Space 72% |
 | Soulful liquid | Liquid | Soulful | Major or Dorian | Groove 68%, Bass Flow 70%, Melody 78%, Space 70% |
 | Deep liquid | Liquid | Deep | Natural Minor | Groove 62%, Bass Flow 76%, Melody 45%, Space 82% |
+| Anthem dancefloor | Dancefloor | Anthem | Natural Minor | Drums 82%, Bass Lift 76%, Hook 84%, Builds 78% |
+| Vocal dancefloor | Dancefloor | Vocal | Dorian | Drums 72%, Bass Lift 62%, Hook 78%, Builds 66% |
+| Festival dancefloor | Dancefloor | Festival | Major or Minor | Drums 88%, Bass Lift 82%, Hook 90%, Builds 86% |
 | Bouncy jump up | Jump Up | Bouncy | Natural Minor | Drums 84%, Wobble 78%, Bass Riff 86%, Hype 70% |
 | Dark jump up | Jump Up | Dark | Phrygian | Drums 78%, Wobble 72%, Bass Riff 74%, Hype 58% |
 | Rave jump up | Jump Up | Rave | Natural Minor | Drums 88%, Wobble 76%, Bass Riff 88%, Hype 86% |

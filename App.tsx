@@ -1,13 +1,14 @@
 import React, { useState, useCallback } from 'react';
-import { GeneratorConfig, GenerationStatus, JungleConfig, JumpUpConfig, LiquidConfig, NeurofunkConfig } from './types';
+import { DancefloorConfig, GeneratorConfig, GenerationStatus, JungleConfig, JumpUpConfig, LiquidConfig, NeurofunkConfig } from './types';
 import { generateAmbientDnB } from './services/generator';
+import { generateDancefloor } from './services/dancefloorGenerator';
 import { generateJungle } from './services/jungleGenerator';
 import { generateJumpUp } from './services/jumpUpGenerator';
 import { generateLiquid } from './services/liquidGenerator';
 import { generateNeurofunk } from './services/neurofunkGenerator';
 import { Visualizer } from './components/Visualizer';
 
-type AppMode = 'ambient' | 'jungle' | 'liquid' | 'jumpup' | 'neurofunk';
+type AppMode = 'ambient' | 'jungle' | 'liquid' | 'dancefloor' | 'jumpup' | 'neurofunk';
 
 const KEYS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
@@ -101,6 +102,17 @@ export default function App() {
     melody: 0.68,
     space: 0.72
   });
+  const [dancefloorConfig, setDancefloorConfig] = useState<DancefloorConfig>({
+    bpm: 174,
+    lengthMinutes: 8,
+    scaleRoot: 'F',
+    scaleType: 'minor',
+    style: 'anthem',
+    drumDrive: 0.82,
+    bassLift: 0.76,
+    hookSize: 0.84,
+    buildEnergy: 0.78
+  });
   const [jumpUpConfig, setJumpUpConfig] = useState<JumpUpConfig>({
     bpm: 174,
     lengthMinutes: 8,
@@ -134,6 +146,8 @@ export default function App() {
         midiBytes = await generateJungle(jungleConfig, setStatus);
       } else if (mode === 'liquid') {
         midiBytes = await generateLiquid(liquidConfig, setStatus);
+      } else if (mode === 'dancefloor') {
+        midiBytes = await generateDancefloor(dancefloorConfig, setStatus);
       } else if (mode === 'jumpup') {
         midiBytes = await generateJumpUp(jumpUpConfig, setStatus);
       } else {
@@ -148,11 +162,11 @@ export default function App() {
       console.error(e);
       setStatus({ isGenerating: false, progress: 0, message: 'Error generating MIDI' });
     }
-  }, [config, jungleConfig, jumpUpConfig, liquidConfig, mode, neuroConfig]);
+  }, [config, dancefloorConfig, jungleConfig, jumpUpConfig, liquidConfig, mode, neuroConfig]);
 
-  const activeBpm = mode === 'ambient' ? config.bpm : mode === 'jungle' ? jungleConfig.bpm : mode === 'liquid' ? liquidConfig.bpm : mode === 'jumpup' ? jumpUpConfig.bpm : neuroConfig.bpm;
-  const activeRoot = mode === 'ambient' ? config.scaleRoot : mode === 'jungle' ? jungleConfig.scaleRoot : mode === 'liquid' ? liquidConfig.scaleRoot : mode === 'jumpup' ? jumpUpConfig.scaleRoot : neuroConfig.scaleRoot;
-  const activeScale = mode === 'ambient' ? config.scaleType : mode === 'jungle' ? jungleConfig.scaleType : mode === 'liquid' ? liquidConfig.scaleType : mode === 'jumpup' ? jumpUpConfig.scaleType : neuroConfig.scaleType;
+  const activeBpm = mode === 'ambient' ? config.bpm : mode === 'jungle' ? jungleConfig.bpm : mode === 'liquid' ? liquidConfig.bpm : mode === 'dancefloor' ? dancefloorConfig.bpm : mode === 'jumpup' ? jumpUpConfig.bpm : neuroConfig.bpm;
+  const activeRoot = mode === 'ambient' ? config.scaleRoot : mode === 'jungle' ? jungleConfig.scaleRoot : mode === 'liquid' ? liquidConfig.scaleRoot : mode === 'dancefloor' ? dancefloorConfig.scaleRoot : mode === 'jumpup' ? jumpUpConfig.scaleRoot : neuroConfig.scaleRoot;
+  const activeScale = mode === 'ambient' ? config.scaleType : mode === 'jungle' ? jungleConfig.scaleType : mode === 'liquid' ? liquidConfig.scaleType : mode === 'dancefloor' ? dancefloorConfig.scaleType : mode === 'jumpup' ? jumpUpConfig.scaleType : neuroConfig.scaleType;
   const routing = mode === 'ambient'
     ? [
         ['Ch. 1', 'Evolving pads'],
@@ -180,6 +194,17 @@ export default function App() {
         ['Ch. 10', 'Clean drums'],
         ['Tempo', `${liquidConfig.bpm} BPM`],
       ]
+        : mode === 'dancefloor'
+          ? [
+        ['Ch. 1', 'Lead hook'],
+        ['Ch. 2', 'Clean sub'],
+        ['Ch. 3', 'Anthem chords'],
+        ['Ch. 4', 'Reese bass'],
+        ['Ch. 5', 'Plucks/arps'],
+        ['Ch. 7', 'Builds/FX'],
+        ['Ch. 10', 'Polished drums'],
+        ['Tempo', `${dancefloorConfig.bpm} BPM`],
+      ]
         : mode === 'jumpup'
           ? [
         ['Ch. 1', 'Hooks/stabs'],
@@ -204,6 +229,8 @@ export default function App() {
       ? `jungle_${activeBpm}bpm_${activeRoot}${activeScale}_${jungleConfig.style}.mid`
       : mode === 'liquid'
         ? `liquid_${activeBpm}bpm_${activeRoot}${activeScale}_${liquidConfig.style}.mid`
+        : mode === 'dancefloor'
+          ? `dancefloor_${activeBpm}bpm_${activeRoot}${activeScale}_${dancefloorConfig.style}.mid`
         : mode === 'jumpup'
           ? `jump_up_${activeBpm}bpm_${activeRoot}${activeScale}_${jumpUpConfig.style}.mid`
         : `neurofunk_${activeBpm}bpm_${activeRoot}${activeScale}_${neuroConfig.style}.mid`;
@@ -219,6 +246,8 @@ export default function App() {
                 ? 'bg-emerald-400 shadow-emerald-500/20'
                 : mode === 'liquid'
                   ? 'bg-sky-400 shadow-sky-500/20'
+                  : mode === 'dancefloor'
+                    ? 'bg-lime-300 shadow-lime-500/20'
                   : mode === 'jumpup'
                     ? 'bg-rose-400 shadow-rose-500/20'
                 : 'bg-amber-400 shadow-amber-500/20'
@@ -227,7 +256,7 @@ export default function App() {
           </div>
           <div>
             <h1 className="text-3xl font-bold text-slate-50">Atmosphere</h1>
-            <p className="text-slate-400 text-sm">Ambient, jungle, liquid, jump up, and neurofunk MIDI composer</p>
+            <p className="text-slate-400 text-sm">Ambient, jungle, liquid, dancefloor, jump up, and neurofunk MIDI composer</p>
           </div>
         </header>
 
@@ -236,17 +265,18 @@ export default function App() {
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)] gap-6">
           <div className="bg-slate-900/70 p-5 rounded-lg border border-slate-800 backdrop-blur-sm">
             <h2 className={`text-xl font-semibold mb-5 ${
-              mode === 'ambient' ? 'text-cyan-200' : mode === 'jungle' ? 'text-emerald-200' : mode === 'liquid' ? 'text-sky-200' : mode === 'jumpup' ? 'text-rose-200' : 'text-amber-200'
+              mode === 'ambient' ? 'text-cyan-200' : mode === 'jungle' ? 'text-emerald-200' : mode === 'liquid' ? 'text-sky-200' : mode === 'dancefloor' ? 'text-lime-200' : mode === 'jumpup' ? 'text-rose-200' : 'text-amber-200'
             }`}>Session</h2>
 
             <div className="space-y-5">
               <div>
                 <label className="block text-sm font-medium text-slate-400 mb-2">Engine</label>
-                <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
+                <div className="grid grid-cols-2 lg:grid-cols-6 gap-2">
                   {[
                     { value: 'ambient' as AppMode, label: 'Ambient DnB' },
                     { value: 'jungle' as AppMode, label: 'Jungle' },
                     { value: 'liquid' as AppMode, label: 'Liquid' },
+                    { value: 'dancefloor' as AppMode, label: 'Dancefloor' },
                     { value: 'jumpup' as AppMode, label: 'Jump Up' },
                     { value: 'neurofunk' as AppMode, label: 'Neurofunk' },
                   ].map(option => (
@@ -265,6 +295,8 @@ export default function App() {
                               ? 'border-emerald-300 bg-emerald-400 text-slate-950'
                               : option.value === 'liquid'
                                 ? 'border-sky-300 bg-sky-400 text-slate-950'
+                                : option.value === 'dancefloor'
+                                  ? 'border-lime-200 bg-lime-300 text-slate-950'
                                 : option.value === 'jumpup'
                                   ? 'border-rose-300 bg-rose-400 text-slate-950'
                               : 'border-amber-300 bg-amber-400 text-slate-950'
@@ -608,6 +640,119 @@ export default function App() {
                     />
                   </div>
                 </>
+              ) : mode === 'dancefloor' ? (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-400 mb-2">Style</label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {[
+                        { value: 'anthem', label: 'Anthem' },
+                        { value: 'festival', label: 'Festival' },
+                        { value: 'vocal', label: 'Vocal' },
+                        { value: 'rave', label: 'Rave' },
+                      ].map(option => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => setDancefloorConfig({...dancefloorConfig, style: option.value as DancefloorConfig['style']})}
+                          className={`h-10 rounded-lg border text-sm font-semibold transition-colors ${
+                            dancefloorConfig.style === option.value
+                              ? 'border-lime-200 bg-lime-300 text-slate-950'
+                              : 'border-slate-700 bg-slate-950 text-slate-300 hover:border-slate-500'
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <SliderControl
+                    label="Tempo (BPM)"
+                    value={dancefloorConfig.bpm}
+                    min={168}
+                    max={178}
+                    accent="accent-lime-300"
+                    onChange={(bpm) => setDancefloorConfig({...dancefloorConfig, bpm})}
+                  />
+
+                  <SliderControl
+                    label="Length (Minutes)"
+                    value={dancefloorConfig.lengthMinutes}
+                    min={1}
+                    max={45}
+                    accent="accent-lime-300"
+                    onChange={(lengthMinutes) => setDancefloorConfig({...dancefloorConfig, lengthMinutes})}
+                  />
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-400 mb-2">Key</label>
+                      <select
+                        value={dancefloorConfig.scaleRoot}
+                        onChange={(e) => setDancefloorConfig({...dancefloorConfig, scaleRoot: e.target.value})}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white focus:ring-2 focus:ring-lime-400 outline-none"
+                      >
+                        {KEYS.map(note => <option key={note} value={note}>{note}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-400 mb-2">Scale Type</label>
+                      <select
+                        value={dancefloorConfig.scaleType}
+                        onChange={(e) => setDancefloorConfig({...dancefloorConfig, scaleType: e.target.value as DancefloorConfig['scaleType']})}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white focus:ring-2 focus:ring-lime-400 outline-none"
+                      >
+                        <option value="minor">Natural Minor</option>
+                        <option value="dorian">Dorian</option>
+                        <option value="major">Major</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                    <SliderControl
+                      label="Drums"
+                      value={dancefloorConfig.drumDrive}
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      accent="accent-lime-300"
+                      displayValue={`${Math.round(dancefloorConfig.drumDrive * 100)}%`}
+                      onChange={(drumDrive) => setDancefloorConfig({...dancefloorConfig, drumDrive})}
+                    />
+                    <SliderControl
+                      label="Bass Lift"
+                      value={dancefloorConfig.bassLift}
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      accent="accent-lime-300"
+                      displayValue={`${Math.round(dancefloorConfig.bassLift * 100)}%`}
+                      onChange={(bassLift) => setDancefloorConfig({...dancefloorConfig, bassLift})}
+                    />
+                    <SliderControl
+                      label="Hook"
+                      value={dancefloorConfig.hookSize}
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      accent="accent-lime-300"
+                      displayValue={`${Math.round(dancefloorConfig.hookSize * 100)}%`}
+                      onChange={(hookSize) => setDancefloorConfig({...dancefloorConfig, hookSize})}
+                    />
+                    <SliderControl
+                      label="Builds"
+                      value={dancefloorConfig.buildEnergy}
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      accent="accent-lime-300"
+                      displayValue={`${Math.round(dancefloorConfig.buildEnergy * 100)}%`}
+                      onChange={(buildEnergy) => setDancefloorConfig({...dancefloorConfig, buildEnergy})}
+                    />
+                  </div>
+                </>
               ) : mode === 'jumpup' ? (
                 <>
                   <div>
@@ -845,7 +990,7 @@ export default function App() {
                 {routing.map(([channel, label]) => (
                   <div key={`${channel}-${label}`} className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950 px-3 py-2">
                     <span className={`font-semibold ${
-                      mode === 'ambient' ? 'text-cyan-200' : mode === 'jungle' ? 'text-emerald-200' : mode === 'liquid' ? 'text-sky-200' : mode === 'jumpup' ? 'text-rose-200' : 'text-amber-200'
+                      mode === 'ambient' ? 'text-cyan-200' : mode === 'jungle' ? 'text-emerald-200' : mode === 'liquid' ? 'text-sky-200' : mode === 'dancefloor' ? 'text-lime-200' : mode === 'jumpup' ? 'text-rose-200' : 'text-amber-200'
                     }`}>{channel}</span>
                     <span className="text-slate-400 text-right">{label}</span>
                   </div>
@@ -867,6 +1012,8 @@ export default function App() {
                       ? 'bg-emerald-400 hover:bg-emerald-300 hover:scale-[1.02] text-slate-950 shadow-emerald-500/20'
                     : mode === 'liquid'
                       ? 'bg-sky-400 hover:bg-sky-300 hover:scale-[1.02] text-slate-950 shadow-sky-500/20'
+                    : mode === 'dancefloor'
+                      ? 'bg-lime-300 hover:bg-lime-200 hover:scale-[1.02] text-slate-950 shadow-lime-500/20'
                       : mode === 'jumpup'
                         ? 'bg-rose-400 hover:bg-rose-300 hover:scale-[1.02] text-slate-950 shadow-rose-500/20'
                       : 'bg-amber-400 hover:bg-amber-300 hover:scale-[1.02] text-slate-950 shadow-amber-500/20'}
@@ -882,6 +1029,8 @@ export default function App() {
                       ? 'Generate Jungle Composition'
                       : mode === 'liquid'
                         ? 'Generate Liquid Composition'
+                      : mode === 'dancefloor'
+                        ? 'Generate Dancefloor Composition'
                         : mode === 'jumpup'
                           ? 'Generate Jump Up Composition'
                       : 'Generate Neurofunk Composition'
