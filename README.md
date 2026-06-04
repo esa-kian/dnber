@@ -1,6 +1,6 @@
 # Atmosphere: DnB MIDI Generator
 
-An open-source web app for generating ambient drum and bass, jungle, and neurofunk MIDI sketches.
+An open-source web app for generating ambient drum and bass, jungle, liquid, jump up, and neurofunk MIDI sketches.
 
 The generator creates separate MIDI tracks for drums, bass, atmosphere, stabs, and FX. Use the controls to shape the arrangement before importing the `.mid` file into a DAW.
 
@@ -14,7 +14,7 @@ Think of it as a sketch generator for DnB ideas. It gives you the arrangement an
 
 ## Quick Start
 
-1. Choose an engine: **Ambient DnB**, **Jungle**, or **Neurofunk**.
+1. Choose an engine: **Ambient DnB**, **Jungle**, **Liquid**, **Jump Up**, or **Neurofunk**.
 2. Choose a mood or style.
 3. Pick a tempo and length.
 4. Leave the key and scale on the defaults if you are unsure.
@@ -39,6 +39,22 @@ Jungle treats the break as the lead instrument. It writes chopped Amen/Think/Apa
 Important: this is still MIDI. For the most authentic result, put a sliced break kit or sampler on the drum track instead of a plain acoustic drum kit. The MIDI gives you the chop timing and accents; your drum rack gives it the sample character.
 
 Use this when you want classic, ragga, darkside, or atmospheric jungle sketches.
+
+### Liquid
+
+Liquid creates cleaner, musical DnB sketches with rolling drums, warm keys, extended chords, melodic sub movement, pads, and pluck or vocal-style hooks.
+
+Important: Liquid depends on tasteful sound selection. Use clean drums, warm electric piano or piano, a controlled sub, and gentle reverb/delay rather than aggressive bass design.
+
+Use this when you want smooth, soulful, deep, or vocal liquid DnB ideas.
+
+### Jump Up
+
+Jump Up creates energetic, bass-led DnB sketches with snappy two-step drums, clean sub weight, short wobble bass hooks, call-and-response bass phrases, rave stabs, and build-up FX.
+
+Important: Jump Up is usually about a simple bass idea that people remember. Do not bury it under too many layers. Use short bass patches, strong kick/snare sounds, and a sub that follows the riff without getting muddy.
+
+Use this when you want bouncy, wobble, dark, or rave-style Jump Up ideas.
 
 ### Neurofunk
 
@@ -159,6 +175,96 @@ Dub Space controls pads, FX, sirens, and room around the groove.
 
 Raise it for atmospheric or dubby jungle. Lower it when you want the break and sub to dominate.
 
+## Liquid Controls
+
+### Style
+
+Style changes the musical personality.
+
+- **Smooth**: clean rolling drums, warm chords, and balanced hooks.
+- **Soulful**: more piano-like movement and slightly richer chord choices.
+- **Deep**: restrained hooks, deeper bass, and more space.
+- **Vocal**: hook phrases shaped like vocal chops or lead responses.
+
+If you are unsure, start with **Smooth**.
+
+### Tempo
+
+Liquid usually works well around **168-178 BPM**. The default is **174 BPM**.
+
+### Groove
+
+Groove controls the drum feel.
+
+Lower values keep the beat simple and straight. Higher values add more ghost snares, swing, hats, and phrase-end touches.
+
+### Bass Flow
+
+Bass Flow controls the movement of the sub bass.
+
+Lower values stay close to the root note. Higher values add more passing notes and rolling low-end movement.
+
+### Melody
+
+Melody controls keys, plucks, and hook activity.
+
+Lower values keep the track chord-led. Higher values add more lead notes, call-and-response hooks, and melodic sparkle.
+
+### Space
+
+Space controls pads, echoes, and reverb-friendly details.
+
+Raise it for wider, smoother liquid. Lower it for a tighter roller.
+
+## Jump Up Controls
+
+### Style
+
+Style changes the bass hook and support parts.
+
+- **Bouncy**: simple, catchy root/fifth-style wobble riffs.
+- **Wobble**: longer bass notes with more filter and pitch movement.
+- **Dark**: heavier, sparser riffs with tense notes.
+- **Rave**: more stabs, octave pops, and bright hook energy.
+
+If you are unsure, start with **Bouncy**.
+
+### Tempo
+
+Jump Up usually works well around **170-178 BPM**. The default is **174 BPM**.
+
+### Scale Type
+
+Jump Up usually works best when the bass riff has a dark center.
+
+- **Natural Minor**: the best all-round default.
+- **Phrygian**: darker and more tense.
+- **Dorian**: a little smoother and less harsh.
+
+### Drums
+
+Drums controls how tight and forceful the kick, snare, hats, and fills are.
+
+Lower values keep the beat lighter. Higher values make the drums snap harder and add more phrase-end fills.
+
+### Wobble
+
+Wobble controls bass movement.
+
+Lower values make the bass more static. Higher values add more pitch bends, filter movement, and talking-bass motion.
+
+### Bass Riff
+
+Bass Riff controls how active the hook is.
+
+Lower values leave more space between bass hits. Higher values play more of the full two-bar riff and make the drop more energetic.
+
+### Hype
+
+Hype controls stabs, build-ups, fills, and FX.
+
+Raise it for a more ravey, high-energy sketch. Lower it when you want the bass and drums to stay cleaner.
+
 ## Neurofunk Controls
 
 ### Style
@@ -228,6 +334,27 @@ Raise it when you want the sketch to feel more dramatic. Lower it when you want 
 | 4 | FX and Sirens | Siren, noise sweep, dub FX, impact layer |
 | 10 | Chopped Breaks | Sliced Amen/Think/Apache kit, breakbeat drum rack |
 
+## Liquid MIDI Routing
+
+| MIDI Channel | Track | Suggested Sound |
+| --- | --- | --- |
+| 1 | Keys and Chords | Electric piano, warm piano, soft synth keys |
+| 2 | Liquid Sub | Clean sub bass, rounded synth bass |
+| 3 | Warm Pads | Soft pad, strings, airy background layer |
+| 4 | Hooks and Plucks | Pluck, bell, vocal chop, soft lead |
+| 10 | Clean Rolling Drums | Tight DnB kit, clean break kit, light percussion |
+
+## Jump Up MIDI Routing
+
+| MIDI Channel | Track | Suggested Sound |
+| --- | --- | --- |
+| 1 | Hooks and Rave Stabs | Short lead, rave stab, brass hit, organ stab |
+| 2 | Sub Punch | Clean sine/sub bass, rounded low synth |
+| 5 | Wobble Bass Main | Short wobble bass, square/saw bass, FM bass |
+| 6 | Bass Answer | Second short bass patch for response phrases |
+| 7 | FX and Hype | Noise riser, impact, sweep, tonal FX |
+| 10 | Snappy Jump Up Drums | Punchy DnB kit, tight kick/snare, crisp hats |
+
 ## Neurofunk MIDI Routing
 
 | MIDI Channel | Track | Suggested Sound |
@@ -247,6 +374,10 @@ For ambient pads, use a soft synth sound with long attack and plenty of reverb. 
 
 For jungle drums, use a breakbeat sampler or drum rack with kick, snare, hats, toms, and ghost snare layers. The Chopped Breaks track is written like a sliced break, so it will sound most convincing when the drum sounds are short, gritty, and sample-like. Keep the Dub Sub track clean and heavy.
 
+For liquid, use cleaner drum sounds than jungle or neurofunk. Put an electric piano or warm piano on Keys and Chords, a clean sub on Liquid Sub, a soft pad on Warm Pads, and a gentle pluck or vocal chop on Hooks and Plucks. Reverb and delay should be present, but not so heavy that the groove disappears.
+
+For jump up, keep the bass sounds short and obvious. Put a clean sub on Sub Punch, a memorable wobble patch on Wobble Bass Main, and a different bass patch on Bass Answer. The MIDI includes pitch bend, mod wheel, and filter cutoff cues, but the final character comes from your synth patch. Keep the drums punchy and less messy than jungle.
+
 For neurofunk bass, use a synth patch with movement: wavetable, FM, formant, comb filtering, distortion, or automated filter cutoff. Put different sounds on Bass Main and Bass Response so the phrase talks back and forth. The MIDI includes pitch bend, mod wheel, filter cutoff, and resonance automation cues. Keep the Sub Weight track clean and centered underneath them.
 
 Add reverb and delay to pads, plucks, stabs, and FX. Keep the sub bass mostly dry. Add compression or saturation to the drums if they feel too flat.
@@ -265,6 +396,12 @@ Try these combinations:
 | Ragga jungle | Jungle | Ragga | Dorian | Breaks 82%, Chops 68%, Sub 78%, Dub Space 58% |
 | Darkside jungle | Jungle | Darkside | Phrygian | Breaks 88%, Chops 76%, Sub 86%, Dub Space 70% |
 | Atmospheric jungle | Jungle | Atmospheric | Dorian | Breaks 68%, Chops 48%, Sub 65%, Dub Space 88% |
+| Smooth liquid | Liquid | Smooth | Dorian | Groove 72%, Bass Flow 74%, Melody 68%, Space 72% |
+| Soulful liquid | Liquid | Soulful | Major or Dorian | Groove 68%, Bass Flow 70%, Melody 78%, Space 70% |
+| Deep liquid | Liquid | Deep | Natural Minor | Groove 62%, Bass Flow 76%, Melody 45%, Space 82% |
+| Bouncy jump up | Jump Up | Bouncy | Natural Minor | Drums 84%, Wobble 78%, Bass Riff 86%, Hype 70% |
+| Dark jump up | Jump Up | Dark | Phrygian | Drums 78%, Wobble 72%, Bass Riff 74%, Hype 58% |
+| Rave jump up | Jump Up | Rave | Natural Minor | Drums 88%, Wobble 76%, Bass Riff 88%, Hype 86% |
 | Hard techstep neuro | Neurofunk | Techstep | Phrygian | Drums 82%, Bass Motion 88%, Tech 78%, Tension 82% |
 | Sparse dark neuro | Neurofunk | Dark | Natural Minor | Drums 62%, Bass Motion 58%, Tech 45%, Tension 82% |
 | Clean neuro roller | Neurofunk | Rolling | Phrygian | Drums 74%, Bass Motion 78%, Tech 62%, Tension 74% |

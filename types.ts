@@ -41,6 +41,30 @@ export interface JungleConfig {
   dubSpace: number; // 0-1
 }
 
+export interface LiquidConfig {
+  bpm: number;
+  lengthMinutes: number;
+  scaleRoot: string;
+  scaleType: 'minor' | 'dorian' | 'major';
+  style: 'smooth' | 'soulful' | 'deep' | 'vocal';
+  groove: number; // 0-1
+  bassFlow: number; // 0-1
+  melody: number; // 0-1
+  space: number; // 0-1
+}
+
+export interface JumpUpConfig {
+  bpm: number;
+  lengthMinutes: number;
+  scaleRoot: string;
+  scaleType: 'minor' | 'dorian' | 'phrygian';
+  style: 'bouncy' | 'wobble' | 'dark' | 'rave';
+  drumSnap: number; // 0-1
+  wobble: number; // 0-1
+  riffEnergy: number; // 0-1
+  hype: number; // 0-1
+}
+
 export interface MidiEvent {
   deltaTime: number;
   type: number;
