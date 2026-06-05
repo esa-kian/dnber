@@ -1,12 +1,12 @@
 # dnber: Multi-Style DnB MIDI Generator
 
-DnBer is an open-source web app for generating ambient drum and bass, jungle, liquid, dancefloor, jump up, and neurofunk MIDI sketches.
+dnber is an open-source web app for generating ambient drum and bass, jungle, liquid, dancefloor, jump up, and neurofunk MIDI sketches.
 
 The generator creates separate MIDI tracks for drums, bass, atmosphere, stabs, and FX. Use the controls to shape the arrangement before importing the `.mid` file into a DAW.
 
 ## What This App Makes
 
-DnBer does not render finished audio by itself. It creates a `.mid` file, which is a set of musical instructions: which notes to play, when they happen, how hard they hit, and which MIDI channel they belong to.
+dnber does not render finished audio by itself. It creates a `.mid` file, which is a set of musical instructions: which notes to play, when they happen, how hard they hit, and which MIDI channel they belong to.
 
 You import that MIDI file into a music app like Ableton, Logic, GarageBand, FL Studio, Bitwig, Reaper, or Cubase. Then you choose the actual sounds: drums, bass synths, pads, and effects.
 

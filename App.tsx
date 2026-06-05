@@ -11,6 +11,7 @@ import { Visualizer } from './components/Visualizer';
 type AppMode = 'ambient' | 'jungle' | 'liquid' | 'dancefloor' | 'jumpup' | 'neurofunk';
 
 const KEYS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const GUIDE_URL = 'https://github.com/esa-kian/dnber/blob/main/README.md';
 
 const MODE_THEMES: Record<AppMode, {
   label: string;
@@ -127,6 +128,10 @@ const MusicNoteIcon = () => (
 
 const DownloadIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+);
+
+const GuideIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z"/></svg>
 );
 
 type SliderControlProps = {
@@ -363,18 +368,30 @@ export default function App() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {[
-                ['Engine', modeTheme.label],
-                ['Tempo', `${activeBpm} BPM`],
-                ['Key', `${activeRoot} ${formatScale(activeScale)}`],
-                ['Style', formatStyle(activeStyle)],
-              ].map(([label, value]) => (
-                <div key={label} className="rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2">
-                  <div className="text-xs text-slate-500">{label}</div>
-                  <div className="truncate text-sm font-semibold text-slate-100">{value}</div>
-                </div>
-              ))}
+            <div className="flex flex-col gap-3 lg:items-end">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {[
+                  ['Engine', modeTheme.label],
+                  ['Tempo', `${activeBpm} BPM`],
+                  ['Key', `${activeRoot} ${formatScale(activeScale)}`],
+                  ['Style', formatStyle(activeStyle)],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2">
+                    <div className="text-xs text-slate-500">{label}</div>
+                    <div className="truncate text-sm font-semibold text-slate-100">{value}</div>
+                  </div>
+                ))}
+              </div>
+              <a
+                href={GUIDE_URL}
+                target="_blank"
+                rel="noreferrer"
+                aria-label="Open the dnber guide on GitHub"
+                className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-950/60 px-3 text-sm font-semibold text-slate-200 transition-colors hover:border-slate-500 hover:bg-slate-900 ${modeTheme.shadow}`}
+              >
+                <GuideIcon />
+                <span>Read guide</span>
+              </a>
             </div>
           </div>
         </header>
