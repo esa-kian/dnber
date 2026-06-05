@@ -1,5 +1,5 @@
 {
-  "name": "Atmosphere: Ambient DnB Generator",
-  "description": "A browser-based algorithmic composer that generates long-form Ambient Drum & Bass MIDI files compatible with DAWs like GarageBand. No Python required.",
+  "name": "DnBer",
+  "description": "A browser-based DnB MIDI generator for ambient, jungle, liquid, dancefloor, jump up, and neurofunk sketches compatible with DAWs like GarageBand. No Python required.",
   "requestFramePermissions": []
 }

@@ -336,7 +336,7 @@ export default function App() {
         ['Ch. 10', 'Tight drums'],
       ];
   const downloadName = mode === 'ambient'
-    ? `atmosphere_dnb_${activeBpm}bpm_${activeRoot}${activeScale}.mid`
+    ? `dnber_ambient_${activeBpm}bpm_${activeRoot}${activeScale}.mid`
     : mode === 'jungle'
       ? `jungle_${activeBpm}bpm_${activeRoot}${activeScale}_${jungleConfig.style}.mid`
       : mode === 'liquid'
@@ -358,8 +358,8 @@ export default function App() {
               </div>
               <div>
                 <div className={`text-sm font-semibold ${modeTheme.text}`}>{modeTheme.tag}</div>
-                <h1 className="text-3xl font-bold text-slate-50">Atmosphere</h1>
-                <p className="text-sm text-slate-400">DnB MIDI composer</p>
+                <h1 className="text-3xl font-bold text-slate-50">DnBer</h1>
+                <p className="text-sm text-slate-400">Multi-style DnB MIDI generator</p>
               </div>
             </div>
 
