@@ -1,5 +1,5 @@
 {
   "name": "dnber",
-  "description": "A browser-based DnB MIDI generator for ambient, jungle, liquid, dancefloor, jump up, and neurofunk sketches compatible with DAWs like GarageBand. No Python required.",
+  "description": "A browser-based MIDI generator for DnB styles and hypnotic techno sketches compatible with DAWs like GarageBand. No Python required.",
   "requestFramePermissions": []
 }

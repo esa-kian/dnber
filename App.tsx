@@ -1,14 +1,18 @@
 import React, { useState, useCallback } from 'react';
-import { DancefloorConfig, GeneratorConfig, GenerationStatus, JungleConfig, JumpUpConfig, LiquidConfig, NeurofunkConfig } from './types';
+import { DancefloorConfig, GeneratorConfig, GenerationStatus, HypnoticConfig, JungleConfig, JumpUpConfig, LiquidConfig, NeurofunkConfig } from './types';
 import { generateAmbientDnB } from './services/generator';
 import { generateDancefloor } from './services/dancefloorGenerator';
+import { generateHypnoticTechno } from './services/hypnoticGenerator';
 import { generateJungle } from './services/jungleGenerator';
 import { generateJumpUp } from './services/jumpUpGenerator';
 import { generateLiquid } from './services/liquidGenerator';
 import { generateNeurofunk } from './services/neurofunkGenerator';
 import { Visualizer } from './components/Visualizer';
+import { MidiPlayer } from './components/MidiPlayer';
 
-type AppMode = 'ambient' | 'jungle' | 'liquid' | 'dancefloor' | 'jumpup' | 'neurofunk';
+type DnbMode = 'ambient' | 'jungle' | 'liquid' | 'dancefloor' | 'jumpup' | 'neurofunk';
+type AppMode = DnbMode | 'hypnotic';
+type MainGenre = 'dnb' | 'hypnotic';
 
 const KEYS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const GUIDE_URL = 'https://github.com/esa-kian/dnber/blob/main/README.md';
@@ -96,10 +100,22 @@ const MODE_THEMES: Record<AppMode, {
     accent: 'accent-amber-400',
     primary: '#f59e0b',
     secondary: '#fde68a'
+  },
+  hypnotic: {
+    label: 'Hypnotic Techno',
+    tag: 'Techno',
+    text: 'text-teal-200',
+    solid: 'bg-teal-300',
+    button: 'bg-teal-300 hover:bg-teal-200 text-slate-950',
+    border: 'border-teal-200',
+    shadow: 'shadow-teal-500/20',
+    accent: 'accent-teal-300',
+    primary: '#5eead4',
+    secondary: '#bef264'
   }
 };
 
-const ENGINE_OPTIONS: { value: AppMode; label: string }[] = [
+const DNB_OPTIONS: { value: DnbMode; label: string }[] = [
   { value: 'ambient', label: 'Ambient DnB' },
   { value: 'jungle', label: 'Jungle' },
   { value: 'liquid', label: 'Liquid' },
@@ -174,6 +190,7 @@ const SliderControl: React.FC<SliderControlProps> = ({
 
 export default function App() {
   const [mode, setMode] = useState<AppMode>('ambient');
+  const [lastDnbMode, setLastDnbMode] = useState<DnbMode>('ambient');
   const [config, setConfig] = useState<GeneratorConfig>({
     bpm: 174,
     lengthMinutes: 20,
@@ -239,6 +256,17 @@ export default function App() {
     riffEnergy: 0.86,
     hype: 0.7
   });
+  const [hypnoticConfig, setHypnoticConfig] = useState<HypnoticConfig>({
+    bpm: 132,
+    lengthMinutes: 8,
+    scaleRoot: 'F',
+    scaleType: 'phrygian',
+    style: 'berlin',
+    drive: 0.78,
+    hypnosis: 0.86,
+    percussion: 0.64,
+    space: 0.72
+  });
 
   const [status, setStatus] = useState<GenerationStatus>({
     isGenerating: false,
@@ -246,9 +274,27 @@ export default function App() {
     message: ''
   });
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [midiBytes, setMidiBytes] = useState<Uint8Array | null>(null);
+
+  const clearOutput = () => {
+    setDownloadUrl(null);
+    setMidiBytes(null);
+  };
+
+  const selectMainGenre = (genre: MainGenre) => {
+    setMode(genre === 'hypnotic' ? 'hypnotic' : lastDnbMode);
+    clearOutput();
+  };
+
+  const selectDnbMode = (nextMode: DnbMode) => {
+    setMode(nextMode);
+    setLastDnbMode(nextMode);
+    clearOutput();
+  };
 
   const handleGenerate = useCallback(async () => {
     setDownloadUrl(null);
+    setMidiBytes(null);
     setStatus({ isGenerating: true, progress: 0, message: 'Initializing generator...' });
 
     try {
@@ -265,6 +311,8 @@ export default function App() {
         midiBytes = await generateDancefloor(dancefloorConfig, setStatus);
       } else if (mode === 'jumpup') {
         midiBytes = await generateJumpUp(jumpUpConfig, setStatus);
+      } else if (mode === 'hypnotic') {
+        midiBytes = await generateHypnoticTechno(hypnoticConfig, setStatus);
       } else {
         midiBytes = await generateNeurofunk(neuroConfig, setStatus);
       }
@@ -272,18 +320,22 @@ export default function App() {
       const blob = new Blob([midiBytes], { type: 'audio/midi' });
       const url = URL.createObjectURL(blob);
       setDownloadUrl(url);
-      setStatus({ isGenerating: false, progress: 100, message: 'Ready to download' });
+      setMidiBytes(midiBytes);
+      setStatus({ isGenerating: false, progress: 100, message: 'Ready to play or download' });
     } catch (e) {
       console.error(e);
       setStatus({ isGenerating: false, progress: 0, message: 'Error generating MIDI' });
     }
-  }, [config, dancefloorConfig, jungleConfig, jumpUpConfig, liquidConfig, mode, neuroConfig]);
+  }, [config, dancefloorConfig, hypnoticConfig, jungleConfig, jumpUpConfig, liquidConfig, mode, neuroConfig]);
 
-  const activeBpm = mode === 'ambient' ? config.bpm : mode === 'jungle' ? jungleConfig.bpm : mode === 'liquid' ? liquidConfig.bpm : mode === 'dancefloor' ? dancefloorConfig.bpm : mode === 'jumpup' ? jumpUpConfig.bpm : neuroConfig.bpm;
-  const activeRoot = mode === 'ambient' ? config.scaleRoot : mode === 'jungle' ? jungleConfig.scaleRoot : mode === 'liquid' ? liquidConfig.scaleRoot : mode === 'dancefloor' ? dancefloorConfig.scaleRoot : mode === 'jumpup' ? jumpUpConfig.scaleRoot : neuroConfig.scaleRoot;
-  const activeScale = mode === 'ambient' ? config.scaleType : mode === 'jungle' ? jungleConfig.scaleType : mode === 'liquid' ? liquidConfig.scaleType : mode === 'dancefloor' ? dancefloorConfig.scaleType : mode === 'jumpup' ? jumpUpConfig.scaleType : neuroConfig.scaleType;
-  const activeStyle = mode === 'ambient' ? config.mood : mode === 'jungle' ? jungleConfig.style : mode === 'liquid' ? liquidConfig.style : mode === 'dancefloor' ? dancefloorConfig.style : mode === 'jumpup' ? jumpUpConfig.style : neuroConfig.style;
+  const activeBpm = mode === 'ambient' ? config.bpm : mode === 'jungle' ? jungleConfig.bpm : mode === 'liquid' ? liquidConfig.bpm : mode === 'dancefloor' ? dancefloorConfig.bpm : mode === 'jumpup' ? jumpUpConfig.bpm : mode === 'hypnotic' ? hypnoticConfig.bpm : neuroConfig.bpm;
+  const activeRoot = mode === 'ambient' ? config.scaleRoot : mode === 'jungle' ? jungleConfig.scaleRoot : mode === 'liquid' ? liquidConfig.scaleRoot : mode === 'dancefloor' ? dancefloorConfig.scaleRoot : mode === 'jumpup' ? jumpUpConfig.scaleRoot : mode === 'hypnotic' ? hypnoticConfig.scaleRoot : neuroConfig.scaleRoot;
+  const activeScale = mode === 'ambient' ? config.scaleType : mode === 'jungle' ? jungleConfig.scaleType : mode === 'liquid' ? liquidConfig.scaleType : mode === 'dancefloor' ? dancefloorConfig.scaleType : mode === 'jumpup' ? jumpUpConfig.scaleType : mode === 'hypnotic' ? hypnoticConfig.scaleType : neuroConfig.scaleType;
+  const mainGenre: MainGenre = mode === 'hypnotic' ? 'hypnotic' : 'dnb';
   const modeTheme = MODE_THEMES[mode];
+  const mainGenreLabel = mainGenre === 'hypnotic' ? 'Hypnotic Techno' : 'DnB';
+  const detailLabel = mainGenre === 'hypnotic' ? 'Style' : 'DnB Style';
+  const detailValue = mainGenre === 'hypnotic' ? formatStyle(hypnoticConfig.style) : modeTheme.label;
   const routing = mode === 'ambient'
     ? [
         ['Ch. 1', 'Evolving pads'],
@@ -332,6 +384,17 @@ export default function App() {
         ['Ch. 10', 'Snappy drums'],
         ['Tempo', `${jumpUpConfig.bpm} BPM`],
       ]
+        : mode === 'hypnotic'
+          ? [
+        ['Ch. 1', 'Dub stabs'],
+        ['Ch. 2', 'Rumble sub'],
+        ['Ch. 3', 'Low pulse'],
+        ['Ch. 4', 'Sequence'],
+        ['Ch. 5', 'Percussion'],
+        ['Ch. 6', 'Filter FX'],
+        ['Ch. 10', '909 drums'],
+        ['Tempo', `${hypnoticConfig.bpm} BPM`],
+      ]
         : [
         ['Ch. 1', 'Stabs'],
         ['Ch. 2', 'Sub weight'],
@@ -350,6 +413,8 @@ export default function App() {
           ? `dancefloor_${activeBpm}bpm_${activeRoot}${activeScale}_${dancefloorConfig.style}.mid`
         : mode === 'jumpup'
           ? `jump_up_${activeBpm}bpm_${activeRoot}${activeScale}_${jumpUpConfig.style}.mid`
+        : mode === 'hypnotic'
+          ? `hypnotic_techno_${activeBpm}bpm_${activeRoot}${activeScale}_${hypnoticConfig.style}.mid`
         : `neurofunk_${activeBpm}bpm_${activeRoot}${activeScale}_${neuroConfig.style}.mid`;
 
   return (
@@ -364,17 +429,17 @@ export default function App() {
               <div>
                 <div className={`text-sm font-semibold ${modeTheme.text}`}>{modeTheme.tag}</div>
                 <h1 className="text-3xl font-bold text-slate-50">DnBer</h1>
-                <p className="text-sm text-slate-400">Multi-style DnB MIDI generator</p>
+                <p className="text-sm text-slate-400">Multi-genre MIDI generator</p>
               </div>
             </div>
 
             <div className="flex flex-col gap-3 lg:items-end">
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {[
-                  ['Engine', modeTheme.label],
+                  ['Genre', mainGenreLabel],
+                  [detailLabel, detailValue],
                   ['Tempo', `${activeBpm} BPM`],
                   ['Key', `${activeRoot} ${formatScale(activeScale)}`],
-                  ['Style', formatStyle(activeStyle)],
                 ].map(([label, value]) => (
                   <div key={label} className="rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2">
                     <div className="text-xs text-slate-500">{label}</div>
@@ -407,32 +472,63 @@ export default function App() {
 
             <div className="space-y-5">
               <div>
-                <label className="block text-sm font-medium text-slate-400 mb-2">Engine</label>
-                <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
-                  {ENGINE_OPTIONS.map(option => {
-                    const optionTheme = MODE_THEMES[option.value];
-                    const selected = mode === option.value;
+                <label className="block text-sm font-medium text-slate-400 mb-2">Genre</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { value: 'dnb' as MainGenre, label: 'DnB', tag: 'Breaks and bass', theme: MODE_THEMES[lastDnbMode] },
+                    { value: 'hypnotic' as MainGenre, label: 'Hypnotic Techno', tag: '4/4 and rumble', theme: MODE_THEMES.hypnotic },
+                  ].map(option => {
+                    const selected = mainGenre === option.value;
+                    const optionTheme = option.theme;
                     return (
                     <button
                       key={option.value}
                       type="button"
                       onClick={() => {
-                        setMode(option.value);
-                        setDownloadUrl(null);
+                        selectMainGenre(option.value);
                       }}
-                      className={`min-h-14 rounded-lg border px-3 py-2 text-left transition-all ${
+                      className={`min-h-16 rounded-lg border px-4 py-3 text-left transition-all ${
                         selected
                           ? `${optionTheme.border} ${optionTheme.solid} text-slate-950 shadow-lg ${optionTheme.shadow}`
                           : 'border-slate-800 bg-slate-950/70 text-slate-300 hover:border-slate-600 hover:bg-slate-900'
                       }`}
                     >
-                      <span className="block text-sm font-semibold">{option.label}</span>
+                      <span className="block text-base font-semibold">{option.label}</span>
                       <span className={`mt-1 block text-xs ${selected ? 'text-slate-800' : optionTheme.text}`}>{optionTheme.tag}</span>
                     </button>
                     );
                   })}
                 </div>
               </div>
+
+              {mainGenre === 'dnb' && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-400 mb-2">DnB Style</label>
+                  <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+                    {DNB_OPTIONS.map(option => {
+                      const optionTheme = MODE_THEMES[option.value];
+                      const selected = mode === option.value;
+                      return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => {
+                          selectDnbMode(option.value);
+                        }}
+                        className={`min-h-14 rounded-lg border px-3 py-2 text-left transition-all ${
+                          selected
+                            ? `${optionTheme.border} ${optionTheme.solid} text-slate-950 shadow-lg ${optionTheme.shadow}`
+                            : 'border-slate-800 bg-slate-950/70 text-slate-300 hover:border-slate-600 hover:bg-slate-900'
+                        }`}
+                      >
+                        <span className="block text-sm font-semibold">{option.label}</span>
+                        <span className={`mt-1 block text-xs ${selected ? 'text-slate-800' : optionTheme.text}`}>{optionTheme.tag}</span>
+                      </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {mode === 'ambient' ? (
                 <>
@@ -991,6 +1087,119 @@ export default function App() {
                     />
                   </div>
                 </>
+              ) : mode === 'hypnotic' ? (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-400 mb-2">Style</label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {[
+                        { value: 'deep', label: 'Deep' },
+                        { value: 'berlin', label: 'Berlin' },
+                        { value: 'acid', label: 'Acid' },
+                        { value: 'dub', label: 'Dub' },
+                      ].map(option => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => setHypnoticConfig({...hypnoticConfig, style: option.value as HypnoticConfig['style']})}
+                          className={`h-10 rounded-lg border text-sm font-semibold transition-colors ${
+                            hypnoticConfig.style === option.value
+                              ? 'border-teal-200 bg-teal-300 text-slate-950'
+                              : 'border-slate-700 bg-slate-950 text-slate-300 hover:border-slate-500'
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <SliderControl
+                    label="Tempo (BPM)"
+                    value={hypnoticConfig.bpm}
+                    min={124}
+                    max={140}
+                    accent="accent-teal-300"
+                    onChange={(bpm) => setHypnoticConfig({...hypnoticConfig, bpm})}
+                  />
+
+                  <SliderControl
+                    label="Length (Minutes)"
+                    value={hypnoticConfig.lengthMinutes}
+                    min={1}
+                    max={60}
+                    accent="accent-teal-300"
+                    onChange={(lengthMinutes) => setHypnoticConfig({...hypnoticConfig, lengthMinutes})}
+                  />
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-400 mb-2">Key</label>
+                      <select
+                        value={hypnoticConfig.scaleRoot}
+                        onChange={(e) => setHypnoticConfig({...hypnoticConfig, scaleRoot: e.target.value})}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white focus:ring-2 focus:ring-teal-400 outline-none"
+                      >
+                        {KEYS.map(note => <option key={note} value={note}>{note}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-400 mb-2">Scale Type</label>
+                      <select
+                        value={hypnoticConfig.scaleType}
+                        onChange={(e) => setHypnoticConfig({...hypnoticConfig, scaleType: e.target.value as HypnoticConfig['scaleType']})}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white focus:ring-2 focus:ring-teal-400 outline-none"
+                      >
+                        <option value="phrygian">Phrygian (Tense)</option>
+                        <option value="minor">Natural Minor</option>
+                        <option value="dorian">Dorian</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                    <SliderControl
+                      label="Drive"
+                      value={hypnoticConfig.drive}
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      accent="accent-teal-300"
+                      displayValue={`${Math.round(hypnoticConfig.drive * 100)}%`}
+                      onChange={(drive) => setHypnoticConfig({...hypnoticConfig, drive})}
+                    />
+                    <SliderControl
+                      label="Hypnosis"
+                      value={hypnoticConfig.hypnosis}
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      accent="accent-teal-300"
+                      displayValue={`${Math.round(hypnoticConfig.hypnosis * 100)}%`}
+                      onChange={(hypnosis) => setHypnoticConfig({...hypnoticConfig, hypnosis})}
+                    />
+                    <SliderControl
+                      label="Percussion"
+                      value={hypnoticConfig.percussion}
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      accent="accent-teal-300"
+                      displayValue={`${Math.round(hypnoticConfig.percussion * 100)}%`}
+                      onChange={(percussion) => setHypnoticConfig({...hypnoticConfig, percussion})}
+                    />
+                    <SliderControl
+                      label="Space"
+                      value={hypnoticConfig.space}
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      accent="accent-teal-300"
+                      displayValue={`${Math.round(hypnoticConfig.space * 100)}%`}
+                      onChange={(space) => setHypnoticConfig({...hypnoticConfig, space})}
+                    />
+                  </div>
+                </>
               ) : (
                 <>
                   <div>
@@ -1173,10 +1382,23 @@ export default function App() {
                         ? 'Generate Dancefloor Composition'
                         : mode === 'jumpup'
                           ? 'Generate Jump Up Composition'
+                        : mode === 'hypnotic'
+                          ? 'Generate Hypnotic Techno Composition'
                       : 'Generate Neurofunk Composition'
                 }</span>
               )}
             </button>
+
+            {!status.isGenerating && (
+              <MidiPlayer
+                midiBytes={midiBytes}
+                accent={modeTheme.accent}
+                text={modeTheme.text}
+                solid={modeTheme.solid}
+                button={modeTheme.button}
+                shadow={modeTheme.shadow}
+              />
+            )}
 
             {downloadUrl && !status.isGenerating && (
               <a href={downloadUrl} download={downloadName} className="block w-full">

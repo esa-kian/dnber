@@ -77,6 +77,18 @@ export interface DancefloorConfig {
   buildEnergy: number; // 0-1
 }
 
+export interface HypnoticConfig {
+  bpm: number;
+  lengthMinutes: number;
+  scaleRoot: string;
+  scaleType: 'minor' | 'dorian' | 'phrygian';
+  style: 'deep' | 'berlin' | 'acid' | 'dub';
+  drive: number; // 0-1
+  hypnosis: number; // 0-1
+  percussion: number; // 0-1
+  space: number; // 0-1
+}
+
 export interface MidiEvent {
   deltaTime: number;
   type: number;

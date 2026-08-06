@@ -1,6 +1,6 @@
-# DnBer: Multi-Style DnB MIDI Generator
+# DnBer: Multi-Genre MIDI Generator
 
-DnBer is an open-source web app for generating ambient drum and bass, jungle, liquid, dancefloor, jump up, and neurofunk MIDI sketches.
+DnBer is an open-source web app for generating ambient drum and bass, jungle, liquid, dancefloor, jump up, neurofunk, and hypnotic techno MIDI sketches.
 
 The generator creates separate MIDI tracks for drums, bass, atmosphere, stabs, and FX. Use the controls to shape the arrangement before importing the `.mid` file into a DAW.
 
@@ -10,21 +10,32 @@ DnBer does not render finished audio by itself. It creates a `.mid` file, which 
 
 You import that MIDI file into a music app like Ableton, Logic, GarageBand, FL Studio, Bitwig, Reaper, or Cubase. Then you choose the actual sounds: drums, bass synths, pads, and effects.
 
-Think of it as a sketch generator for DnB ideas. It gives you the arrangement and musical movement; your DAW gives it sound design and mixing.
+Think of it as a sketch generator for electronic music ideas. It gives you the arrangement and musical movement; your DAW gives it sound design and mixing.
 
 ## Quick Start
 
-1. Choose an engine: **Ambient DnB**, **Jungle**, **Liquid**, **Dancefloor**, **Jump Up**, or **Neurofunk**.
-2. Choose a mood or style.
-3. Pick a tempo and length.
-4. Leave the key and scale on the defaults if you are unsure.
-5. Adjust the detail controls if you want more or less movement.
-6. Click **Generate Composition**.
-7. Download the `.mid` file.
-8. Import the file into your DAW.
-9. Put sounds on each MIDI track.
+1. Choose a main genre: **DnB** or **Hypnotic Techno**.
+2. If you choose **DnB**, choose a DnB style: **Ambient DnB**, **Jungle**, **Liquid**, **Dancefloor**, **Jump Up**, or **Neurofunk**.
+3. Choose a mood or style.
+4. Pick a tempo and length.
+5. Leave the key and scale on the defaults if you are unsure.
+6. Adjust the detail controls if you want more or less movement.
+7. Click **Generate Composition**.
+8. Download the `.mid` file.
+9. Import the file into your DAW.
+10. Put sounds on each MIDI track.
 
-## Engines
+## Main Genres
+
+### DnB
+
+DnB contains the fast breakbeat-based generators: Ambient DnB, Jungle, Liquid, Dancefloor, Jump Up, and Neurofunk.
+
+### Hypnotic Techno
+
+Hypnotic Techno is the 4/4 techno generator. It has its own tempo range, routing, controls, and groove logic.
+
+## DnB Styles
 
 ### Ambient DnB
 
@@ -71,6 +82,14 @@ Neurofunk creates tighter, more technical sketches with punchy drums, short root
 Important: the generator writes MIDI, not the actual growling bass sound. For neurofunk, the MIDI gives you the rhythm and note movement. The final sound depends heavily on the synth patch, distortion, filtering, resampling, and mixing you use in your DAW.
 
 Use this when you want a darker, more mechanical, bass-led DnB idea.
+
+## Hypnotic Techno
+
+Hypnotic Techno creates long-form 4/4 techno sketches with 909-style drums, rumble sub, low pulse, repeating sequences, sparse dub stabs, percussion, and filter FX.
+
+Important: hypnotic techno works through restraint and slow change. Use strong drum and synth sounds, keep the low end clean, and let small filter or arrangement changes evolve over time.
+
+Use this when you want deep, Berlin, acid, or dub-style techno ideas.
 
 ## Ambient Controls
 
@@ -371,6 +390,59 @@ Tension controls stabs, risers, darker note choices, and FX movement.
 
 Raise it when you want the sketch to feel more dramatic. Lower it when you want more room for your own production.
 
+## Hypnotic Techno Controls
+
+### Style
+
+Style changes the kind of techno groove the generator writes.
+
+- **Deep**: restrained drums, smoother sequences, and more space.
+- **Berlin**: driving, functional, peak-time hypnotic techno.
+- **Acid**: more active note movement for a 303-style synth line.
+- **Dub**: slower chord hits, more atmosphere, and reverb-friendly stabs.
+
+If you are unsure, start with **Berlin**.
+
+### Tempo
+
+Hypnotic techno usually works well around **124-140 BPM**. The default is **132 BPM**.
+
+Lower values feel deeper and heavier. Higher values feel more driving and club-focused.
+
+### Scale Type
+
+Hypnotic techno often works best with a dark, narrow note palette.
+
+- **Phrygian**: tense, tunneling, and darker.
+- **Natural Minor**: dark but familiar.
+- **Dorian**: smoother and more open.
+
+If you are unsure, use **Phrygian** for Berlin or Acid, and **Dorian** for Deep.
+
+### Drive
+
+Drive controls how hard the groove pushes.
+
+Higher values increase kick weight, rumble intensity, and filter bite. Lower values leave more space.
+
+### Hypnosis
+
+Hypnosis controls how locked and active the repeating sequence feels.
+
+Higher values create more repeated motion and subtle mutations. Lower values keep the sequence sparse.
+
+### Percussion
+
+Percussion controls hats, shakers, ghost hits, and tom movement.
+
+Lower values make the groove stripped and steady. Higher values add more shuffle and phrase-end motion.
+
+### Space
+
+Space controls dub stabs, reverb-friendly events, and filter FX.
+
+Raise it for deeper atmosphere. Lower it when you want the kick, rumble, and sequence to dominate.
+
 ## Ambient MIDI Routing
 
 | MIDI Channel | Track | Suggested Sound |
@@ -435,6 +507,18 @@ Raise it when you want the sketch to feel more dramatic. Lower it when you want 
 | 7 | FX Risers | Noise riser, tonal FX, glassy sweep, impact layer |
 | 10 | Tight Drums | Punchy DnB kit, layered kick/snare, tight hats |
 
+## Hypnotic Techno MIDI Routing
+
+| MIDI Channel | Track | Suggested Sound |
+| --- | --- | --- |
+| 1 | Dub Stabs | Short dub chord, organ stab, filtered pad, chord synth |
+| 2 | Rumble Sub | Low sine, resampled rumble, muted bass synth |
+| 3 | Low Pulse | Analog bass, muted pluck, low mono synth |
+| 4 | Hypnotic Sequence | Mono synth, FM pluck, 303-style synth |
+| 5 | Shakers and Percussion | Shaker, rim, noise hat, modular percussion |
+| 6 | Filter FX | Noise sweep, airy synth, filtered texture |
+| 10 | 909 Kick and Hats | 909 kit, drum rack, hardware drum machine |
+
 ## How To Make It Sound More Finished
 
 After importing the MIDI, the biggest improvement comes from choosing good sounds.
@@ -450,6 +534,8 @@ For dancefloor, use polished and wide sounds. Put a supersaw or vocal-style synt
 For jump up, keep the bass sounds short and obvious. Put a clean sub on Sub Punch, a memorable wobble patch on Wobble Bass Main, and a different bass patch on Bass Answer. The MIDI includes pitch bend, mod wheel, and filter cutoff cues, but the final character comes from your synth patch. Keep the drums punchy and less messy than jungle.
 
 For neurofunk bass, use a synth patch with movement: wavetable, FM, formant, comb filtering, distortion, or automated filter cutoff. Put different sounds on Bass Main and Bass Response so the phrase talks back and forth. The MIDI includes pitch bend, mod wheel, filter cutoff, and resonance automation cues. Keep the Sub Weight track clean and centered underneath them.
+
+For hypnotic techno, start with a strong 909 kit and a clean low-end setup. Put a short kick on 909 Kick and Hats, then shape Rumble Sub with sidechain compression so it blooms after the kick. Use a mono synth for Hypnotic Sequence and automate cutoff or resonance slowly. Keep Dub Stabs filtered and delayed, but remove low frequencies from the reverb.
 
 Add reverb and delay to pads, plucks, stabs, and FX. Keep the sub bass mostly dry. Add compression or saturation to the drums if they feel too flat.
 
@@ -479,6 +565,10 @@ Try these combinations:
 | Hard techstep neuro | Neurofunk | Techstep | Phrygian | Drums 82%, Bass Motion 88%, Tech 78%, Tension 82% |
 | Sparse dark neuro | Neurofunk | Dark | Natural Minor | Drums 62%, Bass Motion 58%, Tech 45%, Tension 82% |
 | Clean neuro roller | Neurofunk | Rolling | Phrygian | Drums 74%, Bass Motion 78%, Tech 62%, Tension 74% |
+| Berlin techno tunnel | Hypnotic Techno | Berlin | Phrygian | Drive 78%, Hypnosis 86%, Percussion 64%, Space 72% |
+| Deep techno warehouse | Hypnotic Techno | Deep | Dorian | Drive 62%, Hypnosis 88%, Percussion 48%, Space 82% |
+| Acid techno lock | Hypnotic Techno | Acid | Phrygian | Drive 74%, Hypnosis 80%, Percussion 66%, Space 58% |
+| Dub techno chamber | Hypnotic Techno | Dub | Natural Minor | Drive 58%, Hypnosis 72%, Percussion 44%, Space 88% |
 
 ## A Tiny Music Theory Cheat Sheet
 
