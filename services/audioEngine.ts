@@ -6,45 +6,27 @@ import { ParsedMidi, ParsedNote } from '../utils/midiParser';
  * needs no samples, no soundfont and no network access.
  */
 
-export type InstrumentId =
-  | 'subBass'
-  | 'reeseBass'
-  | 'wobbleBass'
-  | 'growlBass'
-  | 'acidBass'
-  | 'riddimBass'
-  | 'talkingBass'
-  | 'screechBass'
-  | 'metalBass'
-  | 'hooverBass'
-  | 'bass808'
-  | 'laserBass'
-  | 'rumbleSub'
-  | 'dubStab'
-  | 'analogStab'
-  | 'blipSeq'
-  | 'droneAtmos'
-  | 'metalPerc'
-  | 'pluck'
-  | 'sawLead'
-  | 'squareLead'
-  | 'ePiano'
-  | 'organ'
-  | 'bell'
-  | 'marimba'
-  | 'warmPad'
-  | 'glassPad'
-  | 'strings'
-  | 'choir'
-  | 'sweepFx'
-  | 'drumKit'
-  | 'drum909'
-  | 'drumRiddim';
+
+export type InstrumentGroup =
+  | 'Bass'
+  | 'Acid'
+  | 'Dubstep'
+  | 'Techno'
+  | 'Industrial'
+  | 'Stab'
+  | 'Lead'
+  | 'Pluck'
+  | 'Keys'
+  | 'Pad'
+  | 'Drone'
+  | 'Perc'
+  | 'FX'
+  | 'Drums';
 
 export interface InstrumentOption {
   id: InstrumentId;
   label: string;
-  group: 'Bass' | 'Dubstep' | 'Techno' | 'Lead' | 'Keys' | 'Pad' | 'FX' | 'Drums';
+  group: InstrumentGroup;
 }
 
 type OscLayer = {
@@ -54,24 +36,31 @@ type OscLayer = {
   gain: number;
 };
 
-/** LFO rate is either free running (Hz) or locked to the song tempo (cycles per beat). */
+/**
+ * LFO rate is either free running (Hz) or locked to the song tempo (cycles per
+ * beat). `sh` is a stepped sample-and-hold shape rather than an oscillator.
+ */
 type LfoSpec = {
   rate?: number;
   sync?: number;
   depth: number;
-  type?: OscillatorType;
+  type?: OscillatorType | 'sh';
 };
+
+type NoiseColor = 'white' | 'pink' | 'metal';
 
 type Preset = {
   label: string;
-  group: InstrumentOption['group'];
+  group: InstrumentGroup;
   oscillators: OscLayer[];
   noise?: number; // noise layer gain
+  noiseColor?: NoiseColor;
   octave?: number; // whole-instrument transpose
   filterType: BiquadFilterType;
   cutoff: number; // Hz at the envelope floor
   cutoffEnv: number; // Hz added by the filter envelope
   resonance: number;
+  highpass?: number; // Hz, thins the body out of a sound
   attack: number;
   decay: number;
   sustain: number; // 0-1
@@ -84,13 +73,21 @@ type Preset = {
   filterLfo?: LfoSpec;
   ampLfo?: LfoSpec; // gates and tremolo; square waves give the riddim chop
   ringMod?: { ratio: number; depth: number };
+  fm?: { ratio: number; index: number; decay?: number }; // index in multiples of the note frequency
+  unison?: { voices: number; detune: number; spread?: number }; // detune in cents, spread pans the copies
   formants?: { low: number; high: number; q: number; sweep?: LfoSpec };
   pitchEnv?: { semitones: number; time: number };
   keyTracking?: number; // how much cutoff follows pitch (0-1)
+  /**
+   * Lowest MIDI note this voice is voiced for. Bright, narrow-band sounds (claves,
+   * bells, glassy plucks) are filtered well above their fundamental, so playing one
+   * on a bass line would pass nothing. Notes below this are raised by octaves.
+   */
+  pitchFloor?: number;
   maxDuration?: number;
 };
 
-const PRESETS: Record<Exclude<InstrumentId, DrumKitId>, Preset> = {
+const PRESETS = {
   subBass: {
     label: 'Sub Bass',
     group: 'Bass',
@@ -173,7 +170,7 @@ const PRESETS: Record<Exclude<InstrumentId, DrumKitId>, Preset> = {
   },
   acidBass: {
     label: 'Acid 303',
-    group: 'Bass',
+    group: 'Acid',
     oscillators: [{ type: 'sawtooth', gain: 0.9 }],
     filterType: 'lowpass',
     cutoff: 220,
@@ -366,7 +363,7 @@ const PRESETS: Record<Exclude<InstrumentId, DrumKitId>, Preset> = {
   },
   dubStab: {
     label: 'Dub Chord Stab',
-    group: 'Techno',
+    group: 'Stab',
     oscillators: [
       { type: 'sawtooth', detune: -10, gain: 0.3 },
       { type: 'square', detune: 9, gain: 0.24 },
@@ -387,7 +384,7 @@ const PRESETS: Record<Exclude<InstrumentId, DrumKitId>, Preset> = {
   },
   analogStab: {
     label: 'Analog Stab',
-    group: 'Techno',
+    group: 'Stab',
     oscillators: [
       { type: 'sawtooth', detune: -8, gain: 0.34 },
       { type: 'sawtooth', detune: 9, gain: 0.34 },
@@ -422,15 +419,16 @@ const PRESETS: Record<Exclude<InstrumentId, DrumKitId>, Preset> = {
     decay: 0.16,
     sustain: 0.02,
     release: 0.14,
-    gain: 0.44,
+    gain: 0.54,
     reverb: 0.35,
     delay: 0.45,
     ringMod: { ratio: 3.02, depth: 0.5 },
-    maxDuration: 0.5
+    maxDuration: 0.5,
+    pitchFloor: 60
   },
   droneAtmos: {
     label: 'Dark Drone',
-    group: 'Techno',
+    group: 'Drone',
     oscillators: [
       { type: 'sawtooth', octave: -1, detune: -7, gain: 0.22 },
       { type: 'triangle', detune: 8, gain: 0.2 }
@@ -451,7 +449,7 @@ const PRESETS: Record<Exclude<InstrumentId, DrumKitId>, Preset> = {
   },
   metalPerc: {
     label: 'Metal Perc',
-    group: 'Techno',
+    group: 'Perc',
     oscillators: [
       { type: 'square', gain: 0.4 },
       { type: 'square', detune: 31, octave: 1, gain: 0.24 }
@@ -468,13 +466,14 @@ const PRESETS: Record<Exclude<InstrumentId, DrumKitId>, Preset> = {
     reverb: 0.45,
     delay: 0.35,
     ringMod: { ratio: 4.7, depth: 0.8 },
-    maxDuration: 0.4
+    maxDuration: 0.4,
+    pitchFloor: 65
   },
 
   // --- Melodic ---
   pluck: {
     label: 'Pluck',
-    group: 'Lead',
+    group: 'Pluck',
     oscillators: [
       { type: 'sawtooth', detune: -7, gain: 0.4 },
       { type: 'triangle', detune: 7, gain: 0.4 }
@@ -490,7 +489,8 @@ const PRESETS: Record<Exclude<InstrumentId, DrumKitId>, Preset> = {
     gain: 0.36,
     reverb: 0.3,
     keyTracking: 0.6,
-    maxDuration: 1.2
+    maxDuration: 1.2,
+    pitchFloor: 48
   },
   sawLead: {
     label: 'Saw Lead',
@@ -589,7 +589,8 @@ const PRESETS: Record<Exclude<InstrumentId, DrumKitId>, Preset> = {
     release: 1.1,
     gain: 0.3,
     reverb: 0.45,
-    maxDuration: 2.4
+    maxDuration: 2.4,
+    pitchFloor: 55
   },
   marimba: {
     label: 'Marimba',
@@ -608,7 +609,8 @@ const PRESETS: Record<Exclude<InstrumentId, DrumKitId>, Preset> = {
     release: 0.22,
     gain: 0.44,
     reverb: 0.28,
-    maxDuration: 0.9
+    maxDuration: 0.9,
+    pitchFloor: 55
   },
   warmPad: {
     label: 'Warm Pad',
@@ -690,7 +692,8 @@ const PRESETS: Record<Exclude<InstrumentId, DrumKitId>, Preset> = {
     release: 1.1,
     gain: 0.3,
     reverb: 0.65,
-    vibrato: { rate: 5, depth: 7 }
+    vibrato: { rate: 5, depth: 7 },
+    pitchFloor: 48
   },
   sweepFx: {
     label: 'Noise Sweep',
@@ -707,23 +710,1696 @@ const PRESETS: Record<Exclude<InstrumentId, DrumKitId>, Preset> = {
     release: 0.6,
     gain: 0.24,
     reverb: 0.6
-  }
-};
+  },
 
-type DrumKitId = 'drumKit' | 'drum909' | 'drumRiddim';
+  // --- Analogue and modern bass ---
+  ladderBass: {
+    label: 'Ladder Bass',
+    group: 'Bass',
+    oscillators: [
+      { type: 'sawtooth', gain: 0.55 },
+      { type: 'square', detune: -6, gain: 0.3 },
+      { type: 'sine', octave: -1, gain: 0.4 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 210,
+    cutoffEnv: 1500,
+    resonance: 6,
+    attack: 0.008,
+    decay: 0.32,
+    sustain: 0.55,
+    release: 0.1,
+    gain: 0.5,
+    reverb: 0.05,
+    drive: 0.2,
+    keyTracking: 0.35
+  },
+  pulseBass: {
+    label: 'Pulse Bass',
+    group: 'Bass',
+    oscillators: [
+      { type: 'square', gain: 0.5 },
+      { type: 'square', detune: 8, octave: -1, gain: 0.4 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 260,
+    cutoffEnv: 1200,
+    resonance: 4,
+    attack: 0.004,
+    decay: 0.2,
+    sustain: 0.7,
+    release: 0.07,
+    gain: 0.48,
+    reverb: 0.04
+  },
+  rubberBass: {
+    label: 'Rubber Bass',
+    group: 'Bass',
+    oscillators: [
+      { type: 'sine', gain: 0.7 },
+      { type: 'triangle', detune: 7, gain: 0.35 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 160,
+    cutoffEnv: 900,
+    resonance: 9,
+    attack: 0.004,
+    decay: 0.14,
+    sustain: 0.3,
+    release: 0.12,
+    gain: 0.62,
+    reverb: 0.06,
+    keyTracking: 0.3
+  },
+  fmBass: {
+    label: 'FM Bass',
+    group: 'Bass',
+    oscillators: [{ type: 'sine', gain: 0.9 }],
+    filterType: 'lowpass',
+    cutoff: 700,
+    cutoffEnv: 900,
+    resonance: 2,
+    attack: 0.004,
+    decay: 0.3,
+    sustain: 0.6,
+    release: 0.1,
+    gain: 0.5,
+    reverb: 0.05,
+    fm: { ratio: 2, index: 3, decay: 0.12 }
+  },
+  fmGrowlBass: {
+    label: 'FM Growl Bass',
+    group: 'Bass',
+    oscillators: [
+      { type: 'sine', gain: 0.7 },
+      { type: 'triangle', octave: -1, gain: 0.35 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 500,
+    cutoffEnv: 1800,
+    resonance: 5,
+    attack: 0.006,
+    decay: 0.28,
+    sustain: 0.55,
+    release: 0.1,
+    gain: 0.42,
+    reverb: 0.07,
+    drive: 0.35,
+    fm: { ratio: 1.5, index: 6, decay: 0.2 },
+    filterLfo: { sync: 2, depth: 500 }
+  },
+  clickBass: {
+    label: 'Click Bass',
+    group: 'Bass',
+    oscillators: [
+      { type: 'sine', gain: 0.85 },
+      { type: 'square', octave: 2, gain: 0.1 }
+    ],
+    noise: 0.12,
+    filterType: 'lowpass',
+    cutoff: 240,
+    cutoffEnv: 2600,
+    resonance: 3,
+    attack: 0.002,
+    decay: 0.08,
+    sustain: 0.5,
+    release: 0.08,
+    gain: 0.6,
+    reverb: 0.04
+  },
+  distortedBass: {
+    label: 'Distorted Bass',
+    group: 'Bass',
+    oscillators: [
+      { type: 'sawtooth', detune: -5, gain: 0.45 },
+      { type: 'square', detune: 6, gain: 0.35 },
+      { type: 'sine', octave: -1, gain: 0.4 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 280,
+    cutoffEnv: 1600,
+    resonance: 6,
+    attack: 0.005,
+    decay: 0.3,
+    sustain: 0.7,
+    release: 0.09,
+    gain: 0.5,
+    reverb: 0.05,
+    drive: 0.7
+  },
+  detroitBass: {
+    label: 'Detroit Bass',
+    group: 'Bass',
+    oscillators: [
+      { type: 'sawtooth', detune: -9, gain: 0.4 },
+      { type: 'square', detune: 10, gain: 0.28 },
+      { type: 'sine', octave: -1, gain: 0.35 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 300,
+    cutoffEnv: 1100,
+    resonance: 3.5,
+    attack: 0.015,
+    decay: 0.45,
+    sustain: 0.6,
+    release: 0.18,
+    gain: 0.46,
+    reverb: 0.12,
+    keyTracking: 0.25
+  },
+  deepPluckBass: {
+    label: 'Deep Pluck Bass',
+    group: 'Bass',
+    oscillators: [
+      { type: 'triangle', gain: 0.6 },
+      { type: 'sine', octave: -1, gain: 0.5 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 200,
+    cutoffEnv: 1400,
+    resonance: 5,
+    attack: 0.004,
+    decay: 0.22,
+    sustain: 0.08,
+    release: 0.2,
+    gain: 0.58,
+    reverb: 0.14,
+    maxDuration: 0.8
+  },
+  triangleSub: {
+    label: 'Triangle Sub',
+    group: 'Bass',
+    oscillators: [
+      { type: 'triangle', gain: 0.9 },
+      { type: 'sine', octave: -1, gain: 0.5 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 150,
+    cutoffEnv: 180,
+    resonance: 0.8,
+    attack: 0.02,
+    decay: 0.4,
+    sustain: 0.9,
+    release: 0.14,
+    gain: 0.8,
+    reverb: 0.03
+  },
+
+  // --- Acid ---
+  acidSquare: {
+    label: 'Acid Square',
+    group: 'Acid',
+    oscillators: [{ type: 'square', gain: 0.85 }],
+    filterType: 'lowpass',
+    cutoff: 240,
+    cutoffEnv: 3000,
+    resonance: 15,
+    attack: 0.004,
+    decay: 0.26,
+    sustain: 0.2,
+    release: 0.08,
+    gain: 0.4,
+    reverb: 0.12,
+    drive: 0.25,
+    keyTracking: 0.5
+  },
+  acidSlide: {
+    label: 'Acid Slide',
+    group: 'Acid',
+    oscillators: [{ type: 'sawtooth', gain: 0.9 }],
+    filterType: 'lowpass',
+    cutoff: 200,
+    cutoffEnv: 3600,
+    resonance: 18,
+    attack: 0.006,
+    decay: 0.34,
+    sustain: 0.25,
+    release: 0.1,
+    gain: 0.4,
+    reverb: 0.16,
+    drive: 0.3,
+    pitchEnv: { semitones: -2, time: 0.08 },
+    keyTracking: 0.5
+  },
+  acidScream: {
+    label: 'Acid Scream',
+    group: 'Acid',
+    oscillators: [
+      { type: 'sawtooth', gain: 0.6 },
+      { type: 'square', detune: 9, gain: 0.3 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 320,
+    cutoffEnv: 5200,
+    resonance: 22,
+    attack: 0.004,
+    decay: 0.3,
+    sustain: 0.3,
+    release: 0.09,
+    gain: 0.32,
+    reverb: 0.2,
+    delay: 0.2,
+    drive: 0.55,
+    keyTracking: 0.6
+  },
+  acidSub: {
+    label: 'Acid Sub',
+    group: 'Acid',
+    oscillators: [
+      { type: 'sawtooth', gain: 0.6 },
+      { type: 'sine', octave: -1, gain: 0.5 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 150,
+    cutoffEnv: 1400,
+    resonance: 12,
+    attack: 0.005,
+    decay: 0.3,
+    sustain: 0.35,
+    release: 0.1,
+    gain: 0.55,
+    reverb: 0.06,
+    drive: 0.2
+  },
+  acidRandom: {
+    label: 'Acid S&H',
+    group: 'Acid',
+    oscillators: [{ type: 'sawtooth', gain: 0.85 }],
+    filterType: 'lowpass',
+    cutoff: 300,
+    cutoffEnv: 2400,
+    resonance: 17,
+    attack: 0.004,
+    decay: 0.24,
+    sustain: 0.3,
+    release: 0.09,
+    gain: 0.38,
+    reverb: 0.22,
+    delay: 0.25,
+    drive: 0.3,
+    filterLfo: { sync: 2, depth: 1800, type: 'sh' }
+  },
+
+  // --- Techno tools ---
+  berlinBass: {
+    label: 'Berlin Bass',
+    group: 'Techno',
+    oscillators: [
+      { type: 'sawtooth', detune: -7, gain: 0.35 },
+      { type: 'sine', octave: -1, gain: 0.6 }
+    ],
+    noise: 0.02,
+    noiseColor: 'pink',
+    filterType: 'lowpass',
+    cutoff: 170,
+    cutoffEnv: 700,
+    resonance: 4,
+    attack: 0.02,
+    decay: 0.5,
+    sustain: 0.75,
+    release: 0.4,
+    gain: 0.6,
+    reverb: 0.3,
+    drive: 0.25,
+    filterLfo: { sync: 0.125, depth: 160 }
+  },
+  tunnelSub: {
+    label: 'Tunnel Sub',
+    group: 'Techno',
+    oscillators: [
+      { type: 'sine', gain: 0.95 },
+      { type: 'sine', detune: 11, gain: 0.35 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 120,
+    cutoffEnv: 260,
+    resonance: 2,
+    attack: 0.05,
+    decay: 0.8,
+    sustain: 0.85,
+    release: 0.7,
+    gain: 0.7,
+    reverb: 0.45,
+    delay: 0.15
+  },
+  rollingBass: {
+    label: 'Rolling Bass',
+    group: 'Techno',
+    oscillators: [
+      { type: 'square', gain: 0.4 },
+      { type: 'sawtooth', detune: -8, gain: 0.3 },
+      { type: 'sine', octave: -1, gain: 0.45 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 220,
+    cutoffEnv: 1300,
+    resonance: 7,
+    attack: 0.005,
+    decay: 0.16,
+    sustain: 0.5,
+    release: 0.08,
+    gain: 0.5,
+    reverb: 0.1,
+    drive: 0.3,
+    ampLfo: { sync: 2, depth: 0.35, type: 'triangle' }
+  },
+  hardgrooveBass: {
+    label: 'Hardgroove Bass',
+    group: 'Techno',
+    oscillators: [
+      { type: 'sawtooth', gain: 0.5 },
+      { type: 'square', detune: 12, gain: 0.28 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 260,
+    cutoffEnv: 2000,
+    resonance: 9,
+    attack: 0.004,
+    decay: 0.13,
+    sustain: 0.25,
+    release: 0.07,
+    gain: 0.48,
+    reverb: 0.08,
+    drive: 0.4,
+    keyTracking: 0.3,
+    maxDuration: 0.5
+  },
+  minimalBleep: {
+    label: 'Minimal Bleep',
+    group: 'Techno',
+    oscillators: [{ type: 'sine', gain: 0.8 }],
+    filterType: 'bandpass',
+    cutoff: 1500,
+    cutoffEnv: 1800,
+    resonance: 6,
+    attack: 0.002,
+    decay: 0.07,
+    sustain: 0.01,
+    release: 0.08,
+    gain: 0.4,
+    reverb: 0.4,
+    delay: 0.5,
+    maxDuration: 0.25,
+    pitchFloor: 67
+  },
+  dubChordLong: {
+    label: 'Dub Chord Wash',
+    group: 'Techno',
+    oscillators: [
+      { type: 'sawtooth', detune: -12, gain: 0.24 },
+      { type: 'triangle', detune: 11, gain: 0.24 },
+      { type: 'sine', octave: 1, gain: 0.1 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 420,
+    cutoffEnv: 1400,
+    resonance: 3,
+    attack: 0.06,
+    decay: 0.9,
+    sustain: 0.25,
+    release: 1.2,
+    gain: 0.3,
+    reverb: 0.8,
+    delay: 0.6,
+    filterLfo: { rate: 0.09, depth: 220 }
+  },
+  loopBass: {
+    label: 'Loop Bass',
+    group: 'Techno',
+    oscillators: [
+      { type: 'triangle', gain: 0.55 },
+      { type: 'square', octave: -1, detune: 5, gain: 0.35 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 190,
+    cutoffEnv: 800,
+    resonance: 5,
+    attack: 0.006,
+    decay: 0.24,
+    sustain: 0.6,
+    release: 0.12,
+    gain: 0.52,
+    reverb: 0.12,
+    filterLfo: { sync: 1, depth: 380, type: 'triangle' }
+  },
+  psyBass: {
+    label: 'Psy Bass',
+    group: 'Techno',
+    oscillators: [
+      { type: 'sawtooth', gain: 0.5 },
+      { type: 'sine', octave: -1, gain: 0.55 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 170,
+    cutoffEnv: 1500,
+    resonance: 8,
+    attack: 0.003,
+    decay: 0.1,
+    sustain: 0.05,
+    release: 0.06,
+    gain: 0.6,
+    reverb: 0.05,
+    drive: 0.3,
+    maxDuration: 0.22
+  },
+  trancePluck: {
+    label: 'Trance Pluck Bass',
+    group: 'Techno',
+    oscillators: [
+      { type: 'sawtooth', detune: -10, gain: 0.35 },
+      { type: 'sawtooth', detune: 11, gain: 0.35 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 300,
+    cutoffEnv: 2600,
+    resonance: 6,
+    attack: 0.003,
+    decay: 0.18,
+    sustain: 0.02,
+    release: 0.16,
+    gain: 0.4,
+    reverb: 0.3,
+    delay: 0.3,
+    maxDuration: 0.6
+  },
+
+  // --- Industrial and hard ---
+  clangBass: {
+    label: 'Clang Bass',
+    group: 'Industrial',
+    oscillators: [
+      { type: 'square', gain: 0.45 },
+      { type: 'sawtooth', octave: -1, detune: 14, gain: 0.4 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 350,
+    cutoffEnv: 2400,
+    resonance: 8,
+    attack: 0.003,
+    decay: 0.2,
+    sustain: 0.4,
+    release: 0.12,
+    gain: 0.4,
+    reverb: 0.3,
+    drive: 0.65,
+    ringMod: { ratio: 3.4, depth: 0.55 }
+  },
+  distortedStab: {
+    label: 'Distorted Stab',
+    group: 'Industrial',
+    oscillators: [
+      { type: 'sawtooth', detune: -9, gain: 0.35 },
+      { type: 'square', detune: 8, gain: 0.3 }
+    ],
+    filterType: 'bandpass',
+    cutoff: 900,
+    cutoffEnv: 2600,
+    resonance: 6,
+    attack: 0.003,
+    decay: 0.16,
+    sustain: 0.05,
+    release: 0.2,
+    gain: 0.36,
+    reverb: 0.45,
+    delay: 0.3,
+    drive: 0.75,
+    maxDuration: 0.5,
+    pitchFloor: 43
+  },
+  noiseHit: {
+    label: 'Noise Hit',
+    group: 'Industrial',
+    oscillators: [{ type: 'square', gain: 0.15 }],
+    noise: 0.7,
+    filterType: 'bandpass',
+    cutoff: 1800,
+    cutoffEnv: 3200,
+    resonance: 3,
+    attack: 0.002,
+    decay: 0.14,
+    sustain: 0.02,
+    release: 0.25,
+    gain: 0.32,
+    reverb: 0.5,
+    drive: 0.4,
+    maxDuration: 0.5,
+    pitchFloor: 43
+  },
+  metalScrape: {
+    label: 'Metal Scrape',
+    group: 'Industrial',
+    oscillators: [{ type: 'square', gain: 0.2 }],
+    noise: 0.5,
+    noiseColor: 'metal',
+    filterType: 'bandpass',
+    cutoff: 2400,
+    cutoffEnv: 3800,
+    resonance: 9,
+    attack: 0.02,
+    decay: 0.5,
+    sustain: 0.35,
+    release: 0.4,
+    gain: 0.26,
+    reverb: 0.55,
+    delay: 0.25,
+    drive: 0.4,
+    filterLfo: { sync: 0.5, depth: 1600, type: 'sh' },
+    pitchFloor: 48
+  },
+  distortedRumble: {
+    label: 'Distorted Rumble',
+    group: 'Industrial',
+    oscillators: [
+      { type: 'sine', gain: 0.8 },
+      { type: 'triangle', detune: 14, gain: 0.35 }
+    ],
+    noise: 0.06,
+    noiseColor: 'pink',
+    filterType: 'lowpass',
+    cutoff: 140,
+    cutoffEnv: 520,
+    resonance: 5,
+    attack: 0.02,
+    decay: 0.6,
+    sustain: 0.8,
+    release: 0.5,
+    gain: 0.55,
+    reverb: 0.4,
+    drive: 0.6
+  },
+  screamLead: {
+    label: 'Scream Lead',
+    group: 'Industrial',
+    oscillators: [
+      { type: 'sawtooth', detune: -14, gain: 0.3 },
+      { type: 'square', detune: 15, gain: 0.28 }
+    ],
+    octave: 1,
+    filterType: 'bandpass',
+    cutoff: 1400,
+    cutoffEnv: 4200,
+    resonance: 16,
+    attack: 0.01,
+    decay: 0.3,
+    sustain: 0.5,
+    release: 0.2,
+    gain: 0.24,
+    reverb: 0.4,
+    delay: 0.3,
+    drive: 0.7,
+    filterLfo: { rate: 6.5, depth: 900 },
+    pitchFloor: 60
+  },
+  gritStab: {
+    label: 'Grit Stab',
+    group: 'Industrial',
+    oscillators: [
+      { type: 'square', gain: 0.35 },
+      { type: 'square', octave: 1, detune: 22, gain: 0.2 }
+    ],
+    noise: 0.15,
+    filterType: 'highpass',
+    cutoff: 700,
+    cutoffEnv: 2600,
+    resonance: 4,
+    attack: 0.002,
+    decay: 0.12,
+    sustain: 0.03,
+    release: 0.14,
+    gain: 0.3,
+    reverb: 0.35,
+    drive: 0.8,
+    maxDuration: 0.4,
+    pitchFloor: 43
+  },
+  ebmBass: {
+    label: 'EBM Bass',
+    group: 'Industrial',
+    oscillators: [
+      { type: 'square', gain: 0.5 },
+      { type: 'sawtooth', detune: -10, gain: 0.35 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 240,
+    cutoffEnv: 2200,
+    resonance: 11,
+    attack: 0.003,
+    decay: 0.12,
+    sustain: 0.15,
+    release: 0.07,
+    gain: 0.46,
+    reverb: 0.1,
+    drive: 0.5,
+    keyTracking: 0.4,
+    maxDuration: 0.35
+  },
+
+  // --- Stabs ---
+  organStab: {
+    label: 'Organ Stab',
+    group: 'Stab',
+    oscillators: [
+      { type: 'sine', gain: 0.4 },
+      { type: 'sine', octave: 1, gain: 0.28 },
+      { type: 'square', octave: 2, gain: 0.1 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 1200,
+    cutoffEnv: 2200,
+    resonance: 2,
+    attack: 0.004,
+    decay: 0.2,
+    sustain: 0.1,
+    release: 0.2,
+    gain: 0.36,
+    reverb: 0.4,
+    delay: 0.3,
+    maxDuration: 0.7,
+    pitchFloor: 43
+  },
+  housePiano: {
+    label: 'House Piano',
+    group: 'Stab',
+    oscillators: [
+      { type: 'triangle', gain: 0.45 },
+      { type: 'sawtooth', detune: 6, gain: 0.2 },
+      { type: 'sine', octave: 1, gain: 0.16 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 1600,
+    cutoffEnv: 3200,
+    resonance: 2,
+    attack: 0.003,
+    decay: 0.5,
+    sustain: 0.12,
+    release: 0.35,
+    gain: 0.4,
+    reverb: 0.4,
+    delay: 0.2,
+    keyTracking: 0.4,
+    maxDuration: 1.4,
+    pitchFloor: 48
+  },
+  brassStab: {
+    label: 'Brass Stab',
+    group: 'Stab',
+    oscillators: [
+      { type: 'sawtooth', detune: -6, gain: 0.34 },
+      { type: 'sawtooth', detune: 7, gain: 0.34 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 500,
+    cutoffEnv: 3000,
+    resonance: 4,
+    attack: 0.03,
+    decay: 0.3,
+    sustain: 0.45,
+    release: 0.2,
+    gain: 0.34,
+    reverb: 0.35,
+    drive: 0.2,
+    maxDuration: 1
+  },
+  glassStab: {
+    label: 'Glass Stab',
+    group: 'Stab',
+    oscillators: [
+      { type: 'sine', gain: 0.4 },
+      { type: 'triangle', octave: 1, detune: 9, gain: 0.26 }
+    ],
+    filterType: 'highpass',
+    cutoff: 500,
+    cutoffEnv: 3400,
+    resonance: 3,
+    attack: 0.002,
+    decay: 0.24,
+    sustain: 0.05,
+    release: 0.4,
+    gain: 0.34,
+    reverb: 0.6,
+    delay: 0.45,
+    fm: { ratio: 3.5, index: 1.2, decay: 0.1 },
+    maxDuration: 0.9,
+    pitchFloor: 55
+  },
+  raveChord: {
+    label: 'Rave Chord',
+    group: 'Stab',
+    oscillators: [
+      { type: 'sawtooth', detune: -16, gain: 0.28 },
+      { type: 'sawtooth', detune: 3, gain: 0.28 },
+      { type: 'square', detune: 18, gain: 0.2 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 700,
+    cutoffEnv: 3200,
+    resonance: 6,
+    attack: 0.006,
+    decay: 0.26,
+    sustain: 0.3,
+    release: 0.25,
+    gain: 0.32,
+    reverb: 0.4,
+    delay: 0.25,
+    drive: 0.3,
+    maxDuration: 1.1
+  },
+  mutedStab: {
+    label: 'Muted Stab',
+    group: 'Stab',
+    oscillators: [
+      { type: 'triangle', gain: 0.5 },
+      { type: 'sawtooth', detune: -8, gain: 0.2 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 380,
+    cutoffEnv: 900,
+    resonance: 3,
+    attack: 0.004,
+    decay: 0.16,
+    sustain: 0.05,
+    release: 0.18,
+    gain: 0.4,
+    reverb: 0.45,
+    delay: 0.35,
+    maxDuration: 0.6
+  },
+  filterStab: {
+    label: 'Filter Stab',
+    group: 'Stab',
+    oscillators: [
+      { type: 'sawtooth', detune: -11, gain: 0.3 },
+      { type: 'sawtooth', detune: 12, gain: 0.3 }
+    ],
+    filterType: 'bandpass',
+    cutoff: 800,
+    cutoffEnv: 2800,
+    resonance: 9,
+    attack: 0.004,
+    decay: 0.2,
+    sustain: 0.12,
+    release: 0.2,
+    gain: 0.34,
+    reverb: 0.4,
+    delay: 0.4,
+    filterLfo: { sync: 1, depth: 700 },
+    maxDuration: 0.8,
+    pitchFloor: 48
+  },
+  fmStab: {
+    label: 'FM Stab',
+    group: 'Stab',
+    oscillators: [{ type: 'sine', gain: 0.7 }],
+    filterType: 'lowpass',
+    cutoff: 1400,
+    cutoffEnv: 2600,
+    resonance: 2,
+    attack: 0.002,
+    decay: 0.22,
+    sustain: 0.06,
+    release: 0.3,
+    gain: 0.4,
+    reverb: 0.45,
+    delay: 0.35,
+    fm: { ratio: 2.01, index: 4, decay: 0.09 },
+    maxDuration: 0.9
+  },
+
+  // --- Leads ---
+  superSaw: {
+    label: 'Supersaw',
+    group: 'Lead',
+    oscillators: [{ type: 'sawtooth', gain: 0.7 }],
+    unison: { voices: 5, detune: 22, spread: 0.6 },
+    filterType: 'lowpass',
+    cutoff: 800,
+    cutoffEnv: 4000,
+    resonance: 3,
+    attack: 0.02,
+    decay: 0.5,
+    sustain: 0.65,
+    release: 0.3,
+    gain: 0.3,
+    reverb: 0.35,
+    delay: 0.2
+  },
+  fmLead: {
+    label: 'FM Lead',
+    group: 'Lead',
+    oscillators: [{ type: 'sine', gain: 0.75 }],
+    filterType: 'lowpass',
+    cutoff: 1800,
+    cutoffEnv: 2400,
+    resonance: 2,
+    attack: 0.01,
+    decay: 0.4,
+    sustain: 0.55,
+    release: 0.2,
+    gain: 0.32,
+    reverb: 0.3,
+    delay: 0.25,
+    fm: { ratio: 3, index: 2.2, decay: 0.3 },
+    vibrato: { rate: 5.4, depth: 8 }
+  },
+  sineLead: {
+    label: 'Sine Lead',
+    group: 'Lead',
+    oscillators: [
+      { type: 'sine', gain: 0.7 },
+      { type: 'sine', octave: 1, gain: 0.14 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 2400,
+    cutoffEnv: 1200,
+    resonance: 1,
+    attack: 0.02,
+    decay: 0.3,
+    sustain: 0.8,
+    release: 0.25,
+    gain: 0.36,
+    reverb: 0.4,
+    delay: 0.3,
+    vibrato: { rate: 5, depth: 10 }
+  },
+  vocalLead: {
+    label: 'Vocal Lead',
+    group: 'Lead',
+    oscillators: [
+      { type: 'sawtooth', detune: -7, gain: 0.34 },
+      { type: 'triangle', detune: 8, gain: 0.3 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 900,
+    cutoffEnv: 1600,
+    resonance: 2,
+    attack: 0.05,
+    decay: 0.5,
+    sustain: 0.65,
+    release: 0.3,
+    gain: 0.34,
+    reverb: 0.5,
+    delay: 0.25,
+    formants: { low: 700, high: 2400, q: 8 },
+    vibrato: { rate: 5.6, depth: 9 },
+    pitchFloor: 48
+  },
+  psyLead: {
+    label: 'Psy Lead',
+    group: 'Lead',
+    oscillators: [
+      { type: 'sawtooth', detune: -8, gain: 0.35 },
+      { type: 'square', detune: 9, gain: 0.25 }
+    ],
+    filterType: 'bandpass',
+    cutoff: 1100,
+    cutoffEnv: 3600,
+    resonance: 12,
+    attack: 0.006,
+    decay: 0.24,
+    sustain: 0.4,
+    release: 0.14,
+    gain: 0.3,
+    reverb: 0.35,
+    delay: 0.4,
+    drive: 0.35,
+    filterLfo: { sync: 4, depth: 1400, type: 'sh' },
+    pitchFloor: 55
+  },
+  hardLead: {
+    label: 'Hard Lead',
+    group: 'Lead',
+    oscillators: [
+      { type: 'sawtooth', detune: -12, gain: 0.34 },
+      { type: 'sawtooth', detune: 13, gain: 0.34 },
+      { type: 'square', octave: -1, gain: 0.2 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 900,
+    cutoffEnv: 3400,
+    resonance: 5,
+    attack: 0.008,
+    decay: 0.4,
+    sustain: 0.6,
+    release: 0.18,
+    gain: 0.28,
+    reverb: 0.28,
+    drive: 0.55
+  },
+  whistleLead: {
+    label: 'Whistle Lead',
+    group: 'Lead',
+    oscillators: [{ type: 'sine', gain: 0.8 }],
+    noise: 0.03,
+    octave: 1,
+    filterType: 'bandpass',
+    cutoff: 2600,
+    cutoffEnv: 2200,
+    resonance: 8,
+    attack: 0.04,
+    decay: 0.3,
+    sustain: 0.7,
+    release: 0.3,
+    gain: 0.3,
+    reverb: 0.55,
+    delay: 0.35,
+    vibrato: { rate: 6, depth: 14 },
+    pitchFloor: 72
+  },
+
+  // --- Plucks and arps ---
+  fmPluck: {
+    label: 'FM Pluck',
+    group: 'Pluck',
+    oscillators: [{ type: 'sine', gain: 0.8 }],
+    filterType: 'lowpass',
+    cutoff: 1600,
+    cutoffEnv: 3000,
+    resonance: 2,
+    attack: 0.002,
+    decay: 0.2,
+    sustain: 0.02,
+    release: 0.25,
+    gain: 0.4,
+    reverb: 0.4,
+    delay: 0.35,
+    fm: { ratio: 4.02, index: 3, decay: 0.06 },
+    maxDuration: 0.8
+  },
+  bellPluck: {
+    label: 'Bell Pluck',
+    group: 'Pluck',
+    oscillators: [
+      { type: 'sine', gain: 0.5 },
+      { type: 'sine', octave: 2, detune: 7, gain: 0.18 }
+    ],
+    filterType: 'highpass',
+    cutoff: 400,
+    cutoffEnv: 2600,
+    resonance: 2,
+    attack: 0.002,
+    decay: 0.5,
+    sustain: 0.02,
+    release: 0.6,
+    gain: 0.46,
+    reverb: 0.6,
+    delay: 0.4,
+    ringMod: { ratio: 2.02, depth: 0.35 },
+    maxDuration: 1.4,
+    pitchFloor: 60
+  },
+  nylonPluck: {
+    label: 'Nylon Pluck',
+    group: 'Pluck',
+    oscillators: [
+      { type: 'triangle', gain: 0.5 },
+      { type: 'sawtooth', detune: 5, gain: 0.16 }
+    ],
+    noise: 0.05,
+    filterType: 'lowpass',
+    cutoff: 900,
+    cutoffEnv: 2400,
+    resonance: 3,
+    attack: 0.002,
+    decay: 0.3,
+    sustain: 0.02,
+    release: 0.3,
+    gain: 0.4,
+    reverb: 0.35,
+    keyTracking: 0.5,
+    maxDuration: 1,
+    pitchFloor: 48
+  },
+  dubPluck: {
+    label: 'Dub Pluck',
+    group: 'Pluck',
+    oscillators: [
+      { type: 'triangle', detune: -6, gain: 0.4 },
+      { type: 'sine', octave: 1, gain: 0.16 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 700,
+    cutoffEnv: 1800,
+    resonance: 4,
+    attack: 0.003,
+    decay: 0.18,
+    sustain: 0.02,
+    release: 0.3,
+    gain: 0.36,
+    reverb: 0.7,
+    delay: 0.65,
+    maxDuration: 0.6,
+    pitchFloor: 48
+  },
+  glassPluck: {
+    label: 'Glass Pluck',
+    group: 'Pluck',
+    oscillators: [
+      { type: 'sine', gain: 0.45 },
+      { type: 'triangle', octave: 1, detune: 11, gain: 0.22 }
+    ],
+    filterType: 'highpass',
+    cutoff: 900,
+    cutoffEnv: 3200,
+    resonance: 3,
+    attack: 0.002,
+    decay: 0.26,
+    sustain: 0.02,
+    release: 0.5,
+    gain: 0.46,
+    reverb: 0.65,
+    delay: 0.5,
+    maxDuration: 1,
+    pitchFloor: 60
+  },
+  woodPluck: {
+    label: 'Wood Pluck',
+    group: 'Pluck',
+    oscillators: [
+      { type: 'sine', gain: 0.6 },
+      { type: 'square', octave: 1, gain: 0.1 }
+    ],
+    noise: 0.08,
+    filterType: 'bandpass',
+    cutoff: 1200,
+    cutoffEnv: 1800,
+    resonance: 4,
+    attack: 0.001,
+    decay: 0.16,
+    sustain: 0.01,
+    release: 0.15,
+    gain: 0.52,
+    reverb: 0.3,
+    maxDuration: 0.5,
+    pitchFloor: 60
+  },
+  arpSquare: {
+    label: 'Arp Square',
+    group: 'Pluck',
+    oscillators: [
+      { type: 'square', gain: 0.4 },
+      { type: 'square', detune: 9, octave: 1, gain: 0.16 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 800,
+    cutoffEnv: 3200,
+    resonance: 7,
+    attack: 0.002,
+    decay: 0.18,
+    sustain: 0.04,
+    release: 0.16,
+    gain: 0.34,
+    reverb: 0.35,
+    delay: 0.45,
+    keyTracking: 0.5,
+    maxDuration: 0.7,
+    pitchFloor: 48
+  },
+
+  // --- Keys ---
+  fmKeys: {
+    label: 'FM Keys',
+    group: 'Keys',
+    oscillators: [{ type: 'sine', gain: 0.75 }],
+    filterType: 'lowpass',
+    cutoff: 2200,
+    cutoffEnv: 1800,
+    resonance: 1,
+    attack: 0.004,
+    decay: 0.8,
+    sustain: 0.3,
+    release: 0.5,
+    gain: 0.4,
+    reverb: 0.4,
+    fm: { ratio: 1.99, index: 1.6, decay: 0.35 }
+  },
+  clav: {
+    label: 'Clav',
+    group: 'Keys',
+    oscillators: [
+      { type: 'square', gain: 0.42 },
+      { type: 'sawtooth', detune: 8, gain: 0.2 }
+    ],
+    filterType: 'bandpass',
+    cutoff: 1400,
+    cutoffEnv: 2600,
+    resonance: 5,
+    attack: 0.002,
+    decay: 0.2,
+    sustain: 0.05,
+    release: 0.18,
+    gain: 0.36,
+    reverb: 0.25,
+    keyTracking: 0.5,
+    maxDuration: 0.7,
+    pitchFloor: 55
+  },
+  vibraphone: {
+    label: 'Vibraphone',
+    group: 'Keys',
+    oscillators: [
+      { type: 'sine', gain: 0.6 },
+      { type: 'sine', octave: 2, detune: 4, gain: 0.14 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 2000,
+    cutoffEnv: 1800,
+    resonance: 1.2,
+    attack: 0.003,
+    decay: 0.9,
+    sustain: 0.06,
+    release: 0.8,
+    gain: 0.36,
+    reverb: 0.5,
+    ampLfo: { rate: 5.5, depth: 0.25, type: 'sine' },
+    maxDuration: 2,
+    pitchFloor: 55
+  },
+  musicBox: {
+    label: 'Music Box',
+    group: 'Keys',
+    oscillators: [
+      { type: 'sine', gain: 0.5 },
+      { type: 'sine', octave: 2, gain: 0.2 },
+      { type: 'sine', octave: 3, detune: 9, gain: 0.06 }
+    ],
+    octave: 1,
+    filterType: 'highpass',
+    cutoff: 700,
+    cutoffEnv: 2400,
+    resonance: 1.4,
+    attack: 0.002,
+    decay: 0.7,
+    sustain: 0.02,
+    release: 0.7,
+    gain: 0.46,
+    reverb: 0.6,
+    delay: 0.3,
+    maxDuration: 1.6,
+    pitchFloor: 72
+  },
+  glassKeys: {
+    label: 'Glass Keys',
+    group: 'Keys',
+    oscillators: [
+      { type: 'triangle', gain: 0.45 },
+      { type: 'sine', octave: 1, detune: 6, gain: 0.24 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 1800,
+    cutoffEnv: 2600,
+    resonance: 1.6,
+    attack: 0.01,
+    decay: 0.7,
+    sustain: 0.35,
+    release: 0.6,
+    gain: 0.34,
+    reverb: 0.55,
+    delay: 0.25,
+    pitchFloor: 48
+  },
+
+  // --- Pads ---
+  chorusPad: {
+    label: 'Chorus Pad',
+    group: 'Pad',
+    oscillators: [{ type: 'sawtooth', gain: 0.5 }],
+    unison: { voices: 4, detune: 16, spread: 0.7 },
+    filterType: 'lowpass',
+    cutoff: 500,
+    cutoffEnv: 1600,
+    resonance: 1.6,
+    attack: 0.6,
+    decay: 1.6,
+    sustain: 0.7,
+    release: 1.4,
+    gain: 0.26,
+    reverb: 0.6,
+    filterLfo: { rate: 0.13, depth: 220 }
+  },
+  darkPad: {
+    label: 'Dark Pad',
+    group: 'Pad',
+    oscillators: [
+      { type: 'sawtooth', octave: -1, detune: -10, gain: 0.3 },
+      { type: 'triangle', detune: 9, gain: 0.26 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 260,
+    cutoffEnv: 900,
+    resonance: 3,
+    attack: 0.8,
+    decay: 2,
+    sustain: 0.7,
+    release: 1.8,
+    gain: 0.28,
+    reverb: 0.7,
+    drive: 0.15,
+    filterLfo: { rate: 0.07, depth: 160 }
+  },
+  detroitStrings: {
+    label: 'Detroit Strings',
+    group: 'Pad',
+    oscillators: [
+      { type: 'sawtooth', detune: -14, gain: 0.26 },
+      { type: 'sawtooth', detune: 6, gain: 0.26 },
+      { type: 'sawtooth', octave: 1, detune: 16, gain: 0.14 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 700,
+    cutoffEnv: 1800,
+    resonance: 2,
+    attack: 0.35,
+    decay: 1,
+    sustain: 0.7,
+    release: 0.8,
+    gain: 0.26,
+    reverb: 0.6,
+    delay: 0.2,
+    vibrato: { rate: 4.4, depth: 6 }
+  },
+  airyPad: {
+    label: 'Airy Pad',
+    group: 'Pad',
+    oscillators: [
+      { type: 'sine', gain: 0.3 },
+      { type: 'triangle', octave: 1, detune: 7, gain: 0.18 }
+    ],
+    noise: 0.06,
+    noiseColor: 'pink',
+    filterType: 'bandpass',
+    cutoff: 1600,
+    cutoffEnv: 2400,
+    resonance: 2,
+    attack: 1.1,
+    decay: 2.2,
+    sustain: 0.65,
+    release: 2,
+    gain: 0.26,
+    reverb: 0.8,
+    delay: 0.3,
+    pitchFloor: 48
+  },
+  sweepPad: {
+    label: 'Sweep Pad',
+    group: 'Pad',
+    oscillators: [
+      { type: 'sawtooth', detune: -8, gain: 0.28 },
+      { type: 'square', detune: 10, gain: 0.2 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 340,
+    cutoffEnv: 2600,
+    resonance: 7,
+    attack: 0.5,
+    decay: 1.6,
+    sustain: 0.7,
+    release: 1.4,
+    gain: 0.24,
+    reverb: 0.65,
+    filterLfo: { sync: 0.0625, depth: 900 }
+  },
+  analogBrass: {
+    label: 'Analog Brass',
+    group: 'Pad',
+    oscillators: [
+      { type: 'sawtooth', detune: -7, gain: 0.3 },
+      { type: 'sawtooth', detune: 8, gain: 0.3 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 420,
+    cutoffEnv: 2600,
+    resonance: 3.5,
+    attack: 0.12,
+    decay: 0.8,
+    sustain: 0.6,
+    release: 0.4,
+    gain: 0.28,
+    reverb: 0.4,
+    drive: 0.2
+  },
+
+  // --- Drones and atmospheres ---
+  subDrone: {
+    label: 'Sub Drone',
+    group: 'Drone',
+    oscillators: [
+      { type: 'sine', gain: 0.7 },
+      { type: 'sine', detune: 7, octave: -1, gain: 0.4 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 110,
+    cutoffEnv: 200,
+    resonance: 2,
+    attack: 1.5,
+    decay: 3,
+    sustain: 0.8,
+    release: 2.5,
+    gain: 0.5,
+    reverb: 0.6
+  },
+  metalDrone: {
+    label: 'Metal Drone',
+    group: 'Drone',
+    oscillators: [{ type: 'triangle', gain: 0.3 }],
+    noise: 0.25,
+    noiseColor: 'metal',
+    filterType: 'bandpass',
+    cutoff: 1200,
+    cutoffEnv: 1800,
+    resonance: 7,
+    attack: 1.2,
+    decay: 2.4,
+    sustain: 0.6,
+    release: 2.2,
+    gain: 0.24,
+    reverb: 0.75,
+    delay: 0.3,
+    filterLfo: { rate: 0.05, depth: 700 },
+    pitchFloor: 43
+  },
+  noiseBed: {
+    label: 'Noise Bed',
+    group: 'Drone',
+    oscillators: [{ type: 'sine', gain: 0.08 }],
+    noise: 0.5,
+    noiseColor: 'pink',
+    filterType: 'lowpass',
+    cutoff: 600,
+    cutoffEnv: 1400,
+    resonance: 1.4,
+    attack: 1.6,
+    decay: 3,
+    sustain: 0.7,
+    release: 2.6,
+    gain: 0.22,
+    reverb: 0.8
+  },
+  tapeHiss: {
+    label: 'Tape Hiss',
+    group: 'Drone',
+    oscillators: [{ type: 'sine', gain: 0.04 }],
+    noise: 0.42,
+    noiseColor: 'pink',
+    filterType: 'highpass',
+    cutoff: 2200,
+    cutoffEnv: 1800,
+    resonance: 0.8,
+    attack: 0.8,
+    decay: 2,
+    sustain: 0.6,
+    release: 1.6,
+    gain: 0.2,
+    reverb: 0.5,
+    ampLfo: { rate: 0.7, depth: 0.2, type: 'sine' }
+  },
+  caveDrone: {
+    label: 'Cave Drone',
+    group: 'Drone',
+    oscillators: [
+      { type: 'sawtooth', octave: -1, detune: -9, gain: 0.2 },
+      { type: 'sine', gain: 0.24 }
+    ],
+    noise: 0.1,
+    filterType: 'lowpass',
+    cutoff: 220,
+    cutoffEnv: 1100,
+    resonance: 8,
+    attack: 1.4,
+    decay: 3,
+    sustain: 0.65,
+    release: 2.8,
+    gain: 0.26,
+    reverb: 0.85,
+    delay: 0.4,
+    filterLfo: { rate: 0.04, depth: 420 }
+  },
+
+  // --- Tuned percussion ---
+  woodBlock: {
+    label: 'Wood Block',
+    group: 'Perc',
+    oscillators: [
+      { type: 'sine', gain: 0.6 },
+      { type: 'square', octave: 1, gain: 0.14 }
+    ],
+    noise: 0.1,
+    filterType: 'bandpass',
+    cutoff: 1800,
+    cutoffEnv: 1600,
+    resonance: 6,
+    attack: 0.001,
+    decay: 0.09,
+    sustain: 0.01,
+    release: 0.09,
+    gain: 0.5,
+    reverb: 0.3,
+    maxDuration: 0.3,
+    pitchFloor: 67
+  },
+  tunedTom: {
+    label: 'Tuned Tom',
+    group: 'Perc',
+    oscillators: [
+      { type: 'sine', gain: 0.8 },
+      { type: 'triangle', detune: 12, gain: 0.2 }
+    ],
+    filterType: 'lowpass',
+    cutoff: 600,
+    cutoffEnv: 900,
+    resonance: 2,
+    attack: 0.002,
+    decay: 0.3,
+    sustain: 0.02,
+    release: 0.25,
+    gain: 0.55,
+    reverb: 0.35,
+    pitchEnv: { semitones: 5, time: 0.1 },
+    maxDuration: 0.6
+  },
+  cowbell: {
+    label: 'Cowbell',
+    group: 'Perc',
+    oscillators: [
+      { type: 'square', gain: 0.35 },
+      { type: 'square', detune: 40, octave: 1, gain: 0.25 }
+    ],
+    filterType: 'bandpass',
+    cutoff: 2200,
+    cutoffEnv: 1200,
+    resonance: 5,
+    attack: 0.001,
+    decay: 0.16,
+    sustain: 0.02,
+    release: 0.14,
+    gain: 0.44,
+    reverb: 0.4,
+    maxDuration: 0.4,
+    pitchFloor: 67
+  },
+  clave: {
+    label: 'Clave',
+    group: 'Perc',
+    oscillators: [{ type: 'sine', gain: 0.7 }],
+    octave: 1,
+    filterType: 'bandpass',
+    cutoff: 2400,
+    cutoffEnv: 1800,
+    resonance: 9,
+    attack: 0.001,
+    decay: 0.06,
+    sustain: 0.01,
+    release: 0.06,
+    gain: 0.42,
+    reverb: 0.35,
+    maxDuration: 0.2,
+    pitchFloor: 72
+  },
+  bellPerc: {
+    label: 'Bell Perc',
+    group: 'Perc',
+    oscillators: [
+      { type: 'sine', gain: 0.4 },
+      { type: 'sine', octave: 2, detune: 14, gain: 0.2 }
+    ],
+    filterType: 'highpass',
+    cutoff: 1200,
+    cutoffEnv: 2600,
+    resonance: 3,
+    attack: 0.001,
+    decay: 0.35,
+    sustain: 0.02,
+    release: 0.4,
+    gain: 0.44,
+    reverb: 0.6,
+    delay: 0.4,
+    ringMod: { ratio: 5.4, depth: 0.6 },
+    maxDuration: 0.9,
+    pitchFloor: 72
+  },
+  rimTone: {
+    label: 'Rim Tone',
+    group: 'Perc',
+    oscillators: [{ type: 'triangle', gain: 0.5 }],
+    noise: 0.2,
+    filterType: 'bandpass',
+    cutoff: 1600,
+    cutoffEnv: 2200,
+    resonance: 7,
+    attack: 0.001,
+    decay: 0.05,
+    sustain: 0.01,
+    release: 0.06,
+    gain: 0.4,
+    reverb: 0.35,
+    delay: 0.25,
+    maxDuration: 0.2,
+    pitchFloor: 72
+  },
+
+  // --- FX ---
+  riser: {
+    label: 'Riser',
+    group: 'FX',
+    oscillators: [{ type: 'sawtooth', gain: 0.2 }],
+    noise: 0.4,
+    filterType: 'bandpass',
+    cutoff: 400,
+    cutoffEnv: 7000,
+    resonance: 6,
+    attack: 1.6,
+    decay: 0.4,
+    sustain: 0.9,
+    release: 0.3,
+    gain: 0.26,
+    reverb: 0.6,
+    delay: 0.2,
+    pitchEnv: { semitones: -24, time: 2 }
+  },
+  downlifter: {
+    label: 'Downlifter',
+    group: 'FX',
+    oscillators: [{ type: 'sawtooth', gain: 0.25 }],
+    noise: 0.35,
+    filterType: 'lowpass',
+    cutoff: 6000,
+    cutoffEnv: 200,
+    resonance: 5,
+    attack: 0.01,
+    decay: 1.4,
+    sustain: 0.2,
+    release: 0.8,
+    gain: 0.26,
+    reverb: 0.6,
+    pitchEnv: { semitones: 24, time: 1.4 }
+  },
+  siren: {
+    label: 'Siren',
+    group: 'FX',
+    oscillators: [
+      { type: 'sawtooth', gain: 0.35 },
+      { type: 'square', detune: 12, gain: 0.2 }
+    ],
+    filterType: 'bandpass',
+    cutoff: 1400,
+    cutoffEnv: 2600,
+    resonance: 10,
+    attack: 0.1,
+    decay: 0.6,
+    sustain: 0.7,
+    release: 0.5,
+    gain: 0.26,
+    reverb: 0.55,
+    delay: 0.35,
+    vibrato: { rate: 1.4, depth: 220 },
+    pitchFloor: 55
+  },
+  impact: {
+    label: 'Impact',
+    group: 'FX',
+    oscillators: [
+      { type: 'sine', gain: 0.7 },
+      { type: 'triangle', octave: -1, gain: 0.4 }
+    ],
+    noise: 0.4,
+    filterType: 'lowpass',
+    cutoff: 1200,
+    cutoffEnv: 2600,
+    resonance: 3,
+    attack: 0.002,
+    decay: 0.7,
+    sustain: 0.05,
+    release: 1.2,
+    gain: 0.5,
+    reverb: 0.8,
+    drive: 0.3,
+    pitchEnv: { semitones: 12, time: 0.25 },
+    maxDuration: 1.5
+  },
+  vinylCrackle: {
+    label: 'Vinyl Crackle',
+    group: 'FX',
+    oscillators: [{ type: 'sine', gain: 0.02 }],
+    noise: 0.35,
+    noiseColor: 'pink',
+    filterType: 'highpass',
+    cutoff: 3200,
+    cutoffEnv: 2600,
+    resonance: 1,
+    attack: 0.3,
+    decay: 1.2,
+    sustain: 0.5,
+    release: 0.8,
+    gain: 0.22,
+    reverb: 0.35,
+    ampLfo: { rate: 7, depth: 0.5, type: 'sh' }
+  },
+  reverseSwell: {
+    label: 'Reverse Swell',
+    group: 'FX',
+    oscillators: [
+      { type: 'triangle', detune: -8, gain: 0.24 },
+      { type: 'sawtooth', detune: 9, gain: 0.18 }
+    ],
+    noise: 0.2,
+    filterType: 'bandpass',
+    cutoff: 800,
+    cutoffEnv: 4200,
+    resonance: 5,
+    attack: 1.8,
+    decay: 0.3,
+    sustain: 0.95,
+    release: 0.12,
+    gain: 0.26,
+    reverb: 0.7,
+    delay: 0.3
+  },
+} satisfies Record<string, Preset>;
+
+type PresetId = keyof typeof PRESETS;
+export type InstrumentId = PresetId | DrumKitId;
+
+
 
 type DrumKit = {
   label: string;
   kick: { start: number; end: number; glide: number; decay: number; click: number; level: number };
-  snare: { body: number; bodyDecay: number; noiseFreq: number; noiseDecay: number; level: number };
-  hat: { freq: number; closed: number; open: number; level: number };
-  cymbal: { freq: number; decay: number };
+  snare: {
+    body: number;
+    bodyDecay: number;
+    noiseFreq: number;
+    noiseDecay: number;
+    level: number;
+    color?: NoiseColor;
+    clap?: boolean; // render the snare as a stacked clap instead of a single burst
+  };
+  hat: { freq: number; closed: number; open: number; level: number; color?: NoiseColor };
+  cymbal: { freq: number; decay: number; color?: NoiseColor };
   tomTune: number;
   drive: number;
   reverb: number; // multiplies the per-hit reverb sends
 };
 
-const DRUM_KITS: Record<DrumKitId, DrumKit> = {
+const DRUM_KITS = {
   drumKit: {
     label: 'Break Kit',
     kick: { start: 130, end: 44, glide: 0.06, decay: 0.36, click: 0.35, level: 1 },
@@ -753,18 +2429,100 @@ const DRUM_KITS: Record<DrumKitId, DrumKit> = {
     tomTune: 0.85,
     drive: 0.22,
     reverb: 0.8
+  },
+  drum808: {
+    label: '808 Kit',
+    kick: { start: 120, end: 33, glide: 0.13, decay: 1.1, click: 0.3, level: 1 },
+    snare: { body: 185, bodyDecay: 0.1, noiseFreq: 1600, noiseDecay: 0.16, level: 0.55 },
+    hat: { freq: 9000, closed: 0.028, open: 0.5, level: 0.3, color: 'metal' },
+    cymbal: { freq: 5400, decay: 2.4, color: 'metal' },
+    tomTune: 0.9,
+    drive: 0.08,
+    reverb: 1
+  },
+  drum707: {
+    label: '707 Kit',
+    kick: { start: 150, end: 50, glide: 0.03, decay: 0.3, click: 0.45, level: 1 },
+    snare: { body: 220, bodyDecay: 0.05, noiseFreq: 2600, noiseDecay: 0.1, level: 0.6 },
+    hat: { freq: 10500, closed: 0.025, open: 0.24, level: 0.32 },
+    cymbal: { freq: 6200, decay: 1.2 },
+    tomTune: 1.15,
+    drive: 0.1,
+    reverb: 0.9
+  },
+  drum606: {
+    label: '606 Kit',
+    kick: { start: 140, end: 55, glide: 0.025, decay: 0.26, click: 0.55, level: 0.92 },
+    snare: { body: 260, bodyDecay: 0.04, noiseFreq: 3200, noiseDecay: 0.12, level: 0.62 },
+    hat: { freq: 11500, closed: 0.03, open: 0.3, level: 0.34, color: 'metal' },
+    cymbal: { freq: 7000, decay: 1.1, color: 'metal' },
+    tomTune: 1.2,
+    drive: 0.15,
+    reverb: 0.85
+  },
+  drumElectro: {
+    label: 'Electro Kit',
+    kick: { start: 130, end: 40, glide: 0.08, decay: 0.7, click: 0.5, level: 1.05 },
+    snare: { body: 200, bodyDecay: 0.07, noiseFreq: 2000, noiseDecay: 0.14, level: 0.7, clap: true },
+    hat: { freq: 9800, closed: 0.03, open: 0.36, level: 0.34, color: 'metal' },
+    cymbal: { freq: 5800, decay: 1.8, color: 'metal' },
+    tomTune: 1,
+    drive: 0.18,
+    reverb: 1.1
+  },
+  drumMinimal: {
+    label: 'Minimal Click Kit',
+    kick: { start: 145, end: 46, glide: 0.03, decay: 0.24, click: 0.7, level: 0.95 },
+    snare: { body: 240, bodyDecay: 0.03, noiseFreq: 3600, noiseDecay: 0.06, level: 0.5 },
+    hat: { freq: 12000, closed: 0.018, open: 0.14, level: 0.3 },
+    cymbal: { freq: 7600, decay: 0.7 },
+    tomTune: 1.1,
+    drive: 0.05,
+    reverb: 0.7
+  },
+  drumHard: {
+    label: 'Hard Techno Kit',
+    kick: { start: 190, end: 44, glide: 0.05, decay: 0.55, click: 0.65, level: 1.2 },
+    snare: { body: 210, bodyDecay: 0.06, noiseFreq: 2400, noiseDecay: 0.15, level: 0.8, clap: true },
+    hat: { freq: 9200, closed: 0.03, open: 0.34, level: 0.4 },
+    cymbal: { freq: 5000, decay: 2, color: 'metal' },
+    tomTune: 1,
+    drive: 0.35,
+    reverb: 1.2
+  },
+  drumIndustrial: {
+    label: 'Industrial Kit',
+    kick: { start: 110, end: 38, glide: 0.09, decay: 0.7, click: 0.8, level: 1.15 },
+    snare: { body: 170, bodyDecay: 0.12, noiseFreq: 1300, noiseDecay: 0.45, level: 0.85, color: 'metal' },
+    hat: { freq: 6800, closed: 0.06, open: 0.5, level: 0.42, color: 'metal' },
+    cymbal: { freq: 3800, decay: 2.6, color: 'metal' },
+    tomTune: 0.8,
+    drive: 0.4,
+    reverb: 1.4
+  },
+  drumAcoustic: {
+    label: 'Acoustic Kit',
+    kick: { start: 120, end: 48, glide: 0.05, decay: 0.4, click: 0.4, level: 1 },
+    snare: { body: 195, bodyDecay: 0.1, noiseFreq: 1200, noiseDecay: 0.22, level: 0.75, color: 'pink' },
+    hat: { freq: 7600, closed: 0.05, open: 0.36, level: 0.36, color: 'pink' },
+    cymbal: { freq: 4400, decay: 1.8, color: 'pink' },
+    tomTune: 0.95,
+    drive: 0,
+    reverb: 1.1
   }
-};
+} satisfies Record<string, DrumKit>;
+
+type DrumKitId = keyof typeof DRUM_KITS;
 
 function isDrumKit(id: InstrumentId): id is DrumKitId {
   return id in DRUM_KITS;
 }
 
 export const INSTRUMENTS: InstrumentOption[] = [
-  ...(Object.keys(PRESETS) as Exclude<InstrumentId, DrumKitId>[]).map(id => ({
+  ...(Object.keys(PRESETS) as PresetId[]).map(id => ({
     id: id as InstrumentId,
     label: PRESETS[id].label,
-    group: PRESETS[id].group
+    group: PRESETS[id].group as InstrumentGroup
   })),
   ...(Object.keys(DRUM_KITS) as DrumKitId[]).map(id => ({
     id: id as InstrumentId,
@@ -818,18 +2576,57 @@ type Voice = {
   gain: GainNode;
 };
 
-const LOOKAHEAD_SECONDS = 0.25;
+// A short lookahead keeps instrument changes audible almost immediately. When the
+// tab is hidden the browser clamps timers to ~1s, so the window has to grow or
+// playback drops out until the next tick.
+const LOOKAHEAD_VISIBLE = 0.25;
+const LOOKAHEAD_HIDDEN = 2.5;
 const SCHEDULE_INTERVAL_MS = 40;
+const STEP_LFO_BASE_HZ = 8; // sample & hold buffer is cut at this rate, then resampled
 
 function midiToFrequency(pitch: number): number {
   return 440 * Math.pow(2, (pitch - 69) / 12);
 }
 
-function createNoiseBuffer(ctx: AudioContext): AudioBuffer {
+function createNoiseBuffer(ctx: AudioContext, color: NoiseColor): AudioBuffer {
   const length = Math.floor(ctx.sampleRate * 2);
   const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
   const data = buffer.getChannelData(0);
-  for (let i = 0; i < length; i++) data[i] = Math.random() * 2 - 1;
+
+  if (color === 'pink') {
+    // Paul Kellet's economy pink noise filter: darker, closer to analogue hiss
+    let b0 = 0, b1 = 0, b2 = 0;
+    for (let i = 0; i < length; i++) {
+      const white = Math.random() * 2 - 1;
+      b0 = 0.99765 * b0 + white * 0.099046;
+      b1 = 0.963 * b1 + white * 0.2965164;
+      b2 = 0.57 * b2 + white * 1.0526913;
+      data[i] = (b0 + b1 + b2 + white * 0.1848) * 0.32;
+    }
+  } else if (color === 'metal') {
+    // Six detuned square partials: the ringing metallic bed of 808/909 cymbals
+    const partials = [1, 1.41, 1.68, 2.11, 2.53, 3.07];
+    for (let i = 0; i < length; i++) {
+      let sum = 0;
+      for (const partial of partials) sum += Math.sign(Math.sin(2 * Math.PI * 320 * partial * (i / ctx.sampleRate)));
+      data[i] = (sum / partials.length) * 0.9;
+    }
+  } else {
+    for (let i = 0; i < length; i++) data[i] = Math.random() * 2 - 1;
+  }
+  return buffer;
+}
+
+/** Stepped random values, played back at varying rates to act as a sample & hold LFO. */
+function createStepBuffer(ctx: AudioContext): AudioBuffer {
+  const stepSamples = Math.floor(ctx.sampleRate / STEP_LFO_BASE_HZ);
+  const steps = 32;
+  const buffer = ctx.createBuffer(1, stepSamples * steps, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let step = 0; step < steps; step++) {
+    const value = Math.random() * 2 - 1;
+    data.fill(value, step * stepSamples, (step + 1) * stepSamples);
+  }
   return buffer;
 }
 
@@ -862,9 +2659,11 @@ export class MidiAudioEngine {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
   private reverb: ConvolverNode | null = null;
+  private reverbReturn: GainNode | null = null;
   private delay: DelayNode | null = null;
   private delayFeedback: GainNode | null = null;
-  private noiseBuffer: AudioBuffer | null = null;
+  private noiseBuffers: Record<NoiseColor, AudioBuffer> | null = null;
+  private stepBuffer: AudioBuffer | null = null;
   private curves = new Map<number, Float32Array>();
 
   private trackDry: GainNode[] = [];
@@ -881,8 +2680,19 @@ export class MidiAudioEngine {
   private offset = 0; // seconds into the song when paused/stopped
   private playing = false;
   private masterVolume = 0.8;
+  private lookahead = LOOKAHEAD_VISIBLE;
 
   onEnded: (() => void) | null = null;
+
+  private onVisibility = () => {
+    this.lookahead = document.hidden ? LOOKAHEAD_HIDDEN : LOOKAHEAD_VISIBLE;
+    if (this.playing) this.tick();
+  };
+
+  constructor() {
+    document.addEventListener('visibilitychange', this.onVisibility);
+    this.onVisibility();
+  }
 
   get duration(): number {
     return this.song?.duration ?? 0;
@@ -944,9 +2754,15 @@ export class MidiAudioEngine {
       this.ctx = ctx;
       this.master = master;
       this.reverb = reverb;
+      this.reverbReturn = reverbGain;
       this.delay = delay;
       this.delayFeedback = feedback;
-      this.noiseBuffer = createNoiseBuffer(ctx);
+      this.noiseBuffers = {
+        white: createNoiseBuffer(ctx, 'white'),
+        pink: createNoiseBuffer(ctx, 'pink'),
+        metal: createNoiseBuffer(ctx, 'metal')
+      };
+      this.stepBuffer = createStepBuffer(ctx);
     }
     return this.ctx;
   }
@@ -967,12 +2783,13 @@ export class MidiAudioEngine {
     return spec.rate ?? 1;
   }
 
-  load(song: ParsedMidi, settings: TrackSettings[]) {
+  /** `resumeAt` keeps the playhead across a live recompose. */
+  load(song: ParsedMidi, settings: TrackSettings[], resumeAt = 0) {
     this.stop();
     this.song = song;
     this.bpm = song.bpm || 120;
     this.settings = settings.map(setting => ({ ...setting }));
-    this.offset = 0;
+    this.offset = Math.max(0, Math.min(song.duration, resumeAt));
 
     const ctx = this.ensureContext();
     if (this.delay) this.delay.delayTime.value = (60 / this.bpm) * 0.75; // dotted eighth
@@ -1041,6 +2858,7 @@ export class MidiAudioEngine {
     if (ctx.state === 'suspended') await ctx.resume();
 
     if (this.offset >= this.duration) this.offset = 0;
+    this.setBusLevels(1);
     this.startedAt = ctx.currentTime - this.offset;
     this.playing = true;
     this.resetCursors(this.offset);
@@ -1068,6 +2886,7 @@ export class MidiAudioEngine {
   }
 
   dispose() {
+    document.removeEventListener('visibilitychange', this.onVisibility);
     this.halt();
     this.ctx?.close();
     this.ctx = null;
@@ -1080,6 +2899,25 @@ export class MidiAudioEngine {
       this.timer = null;
     }
     this.killVoices();
+    this.setBusLevels(0);
+  }
+
+  /**
+   * The reverb and delay are shared, so their tails outlive the voices that fed
+   * them. Stopping means silence, so the returns are closed on halt and opened
+   * again on play.
+   */
+  private setBusLevels(scale: number) {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    if (this.reverbReturn) {
+      this.reverbReturn.gain.cancelScheduledValues(now);
+      this.reverbReturn.gain.setTargetAtTime(0.85 * scale, now, 0.02);
+    }
+    if (this.delayFeedback) {
+      this.delayFeedback.gain.cancelScheduledValues(now);
+      this.delayFeedback.gain.setTargetAtTime(0.38 * scale, now, 0.02);
+    }
   }
 
   private killVoices() {
@@ -1089,10 +2927,24 @@ export class MidiAudioEngine {
       try {
         voice.gain.gain.cancelScheduledValues(now);
         voice.gain.gain.setTargetAtTime(0, now, 0.01);
-        voice.nodes.forEach(node => node.stop(now + 0.06));
+        voice.nodes.forEach(node => {
+          try {
+            node.stop(now + 0.06);
+          } catch {
+            // Already stopped, or stopped before it ever started
+          }
+        });
       } catch {
-        // A node may already have stopped; nothing to clean up
+        // Nothing left to clean up on this voice
       }
+      // Detach once the fade has finished so nothing can outlive the transport
+      window.setTimeout(() => {
+        try {
+          voice.gain.disconnect();
+        } catch {
+          // Already detached
+        }
+      }, 140);
     }
     this.voices = [];
   }
@@ -1114,7 +2966,7 @@ export class MidiAudioEngine {
   private tick() {
     if (!this.song || !this.ctx || !this.playing) return;
     const ctx = this.ctx;
-    const horizon = ctx.currentTime + LOOKAHEAD_SECONDS;
+    const horizon = ctx.currentTime + this.lookahead;
 
     this.song.tracks.forEach((track, index) => {
       let cursor = this.cursors[index];
@@ -1144,17 +2996,30 @@ export class MidiAudioEngine {
     const instrument = this.settings[trackIndex]?.instrument;
     if (!instrument) return;
     if (isDrumKit(instrument)) this.spawnDrum(trackIndex, note, when, DRUM_KITS[instrument]);
-    else this.spawnSynth(trackIndex, note, when, PRESETS[instrument]);
+    else this.spawnSynth(trackIndex, note, when, PRESETS[instrument] as Preset);
   }
 
   /** Starts an LFO and returns its output gain, already scaled to the requested depth. */
   private startLfo(spec: LfoSpec, depth: number, when: number, stopAt: number, nodes: AudioScheduledSourceNode[]): GainNode {
     const ctx = this.ctx!;
-    const lfo = ctx.createOscillator();
-    lfo.type = spec.type ?? 'sine';
-    lfo.frequency.value = this.lfoRate(spec);
     const amount = ctx.createGain();
     amount.gain.value = depth;
+
+    if (spec.type === 'sh' && this.stepBuffer) {
+      const source = ctx.createBufferSource();
+      source.buffer = this.stepBuffer;
+      source.loop = true;
+      source.playbackRate.value = this.lfoRate(spec) / STEP_LFO_BASE_HZ;
+      source.connect(amount);
+      source.start(when);
+      source.stop(stopAt);
+      nodes.push(source);
+      return amount;
+    }
+
+    const lfo = ctx.createOscillator();
+    lfo.type = (spec.type ?? 'sine') as OscillatorType;
+    lfo.frequency.value = this.lfoRate(spec);
     lfo.connect(amount);
     lfo.start(when);
     lfo.stop(stopAt);
@@ -1173,7 +3038,11 @@ export class MidiAudioEngine {
     const held = preset.maxDuration ? Math.min(note.duration, preset.maxDuration) : note.duration;
     const endAt = when + held;
     const stopAt = endAt + preset.release + 0.05;
-    const frequency = midiToFrequency(note.pitch + (preset.octave ?? 0) * 12);
+    let sourcePitch = note.pitch + (preset.octave ?? 0) * 12;
+    if (preset.pitchFloor) {
+      while (sourcePitch < preset.pitchFloor) sourcePitch += 12;
+    }
+    const frequency = midiToFrequency(sourcePitch);
 
     const nodes: AudioScheduledSourceNode[] = [];
 
@@ -1204,8 +3073,17 @@ export class MidiAudioEngine {
     filter.frequency.linearRampToValueAtTime(ceiling, when + preset.attack + 0.01);
     filter.frequency.setTargetAtTime(floor + (ceiling - floor) * preset.sustain, when + preset.attack + 0.01, Math.max(0.03, preset.decay / 2));
 
-    // oscillators -> filter -> [formants] -> [drive] -> amp -> gate -> outputs
+    // oscillators -> filter -> [highpass] -> [formants] -> [drive] -> amp -> gate -> outputs
     let chainEnd: AudioNode = filter;
+
+    if (preset.highpass) {
+      const hp = ctx.createBiquadFilter();
+      hp.type = 'highpass';
+      hp.frequency.value = preset.highpass;
+      hp.Q.value = 0.7;
+      chainEnd.connect(hp);
+      chainEnd = hp;
+    }
 
     if (preset.formants) {
       const merge = ctx.createGain();
@@ -1237,18 +3115,26 @@ export class MidiAudioEngine {
     }
 
     chainEnd.connect(amp);
-    ampOut.connect(dry);
+
+    let voiceOut: AudioNode = ampOut;
+    if (preset.unison?.spread) {
+      const panner = ctx.createStereoPanner();
+      panner.pan.value = (Math.random() * 2 - 1) * preset.unison.spread;
+      ampOut.connect(panner);
+      voiceOut = panner;
+    }
+    voiceOut.connect(dry);
 
     if (wet && preset.reverb > 0) {
       const send = ctx.createGain();
       send.gain.value = preset.reverb;
-      ampOut.connect(send);
+      voiceOut.connect(send);
       send.connect(wet);
     }
     if (echo && preset.delay) {
       const send = ctx.createGain();
       send.gain.value = preset.delay;
-      ampOut.connect(send);
+      voiceOut.connect(send);
       send.connect(echo);
     }
 
@@ -1288,31 +3174,54 @@ export class MidiAudioEngine {
       ringInput = ring;
     }
 
-    for (const layer of preset.oscillators) {
-      const osc = ctx.createOscillator();
-      osc.type = layer.type;
-      const layerFrequency = frequency * Math.pow(2, layer.octave ?? 0);
-      if (preset.pitchEnv) {
-        osc.frequency.setValueAtTime(layerFrequency * Math.pow(2, preset.pitchEnv.semitones / 12), when);
-        osc.frequency.exponentialRampToValueAtTime(layerFrequency, when + preset.pitchEnv.time);
-      } else {
-        osc.frequency.value = layerFrequency;
-      }
-      if (layer.detune) osc.detune.value = layer.detune;
-      if (vibratoGain) vibratoGain.connect(osc.detune);
-
-      const layerGain = ctx.createGain();
-      layerGain.gain.value = layer.gain;
-      osc.connect(layerGain);
-      layerGain.connect(ringInput);
-      osc.start(when);
-      osc.stop(stopAt);
-      nodes.push(osc);
+    // Frequency modulation: one sine drives the pitch of every carrier
+    let fmGain: GainNode | null = null;
+    if (preset.fm) {
+      const modulator = ctx.createOscillator();
+      modulator.type = 'sine';
+      modulator.frequency.value = frequency * preset.fm.ratio;
+      fmGain = ctx.createGain();
+      const depth = frequency * preset.fm.index;
+      fmGain.gain.setValueAtTime(depth, when);
+      if (preset.fm.decay) fmGain.gain.setTargetAtTime(depth * 0.08, when, preset.fm.decay);
+      modulator.connect(fmGain);
+      modulator.start(when);
+      modulator.stop(stopAt);
+      nodes.push(modulator);
     }
 
-    if (preset.noise && this.noiseBuffer) {
+    const copies = Math.max(1, Math.min(5, preset.unison?.voices ?? 1));
+    const spreadCents = preset.unison?.detune ?? 0;
+
+    for (const layer of preset.oscillators) {
+      for (let copy = 0; copy < copies; copy++) {
+        const osc = ctx.createOscillator();
+        osc.type = layer.type;
+        const layerFrequency = frequency * Math.pow(2, layer.octave ?? 0);
+        if (preset.pitchEnv) {
+          osc.frequency.setValueAtTime(layerFrequency * Math.pow(2, preset.pitchEnv.semitones / 12), when);
+          osc.frequency.exponentialRampToValueAtTime(layerFrequency, when + preset.pitchEnv.time);
+        } else {
+          osc.frequency.value = layerFrequency;
+        }
+        const offset = copies > 1 ? (copy / (copies - 1) - 0.5) * 2 * spreadCents : 0;
+        osc.detune.value = (layer.detune ?? 0) + offset;
+        if (vibratoGain) vibratoGain.connect(osc.detune);
+        fmGain?.connect(osc.frequency);
+
+        const layerGain = ctx.createGain();
+        layerGain.gain.value = layer.gain / copies;
+        osc.connect(layerGain);
+        layerGain.connect(ringInput);
+        osc.start(when);
+        osc.stop(stopAt);
+        nodes.push(osc);
+      }
+    }
+
+    if (preset.noise && this.noiseBuffers) {
       const noise = ctx.createBufferSource();
-      noise.buffer = this.noiseBuffer;
+      noise.buffer = this.noiseBuffers[preset.noiseColor ?? 'white'];
       noise.loop = true;
       const noiseGain = ctx.createGain();
       noiseGain.gain.value = preset.noise;
@@ -1376,10 +3285,18 @@ export class MidiAudioEngine {
       tail = Math.max(tail, decay);
     };
 
-    const noise = (filterType: BiquadFilterType, frequency: number, q: number, decay: number, level: number, at = when) => {
-      if (!this.noiseBuffer) return;
+    const noise = (
+      filterType: BiquadFilterType,
+      frequency: number,
+      q: number,
+      decay: number,
+      level: number,
+      at = when,
+      color: NoiseColor = 'white'
+    ) => {
+      if (!this.noiseBuffers) return;
       const source = ctx.createBufferSource();
-      source.buffer = this.noiseBuffer;
+      source.buffer = this.noiseBuffers[color];
       source.loop = true;
       const filter = ctx.createBiquadFilter();
       filter.type = filterType;
@@ -1416,17 +3333,19 @@ export class MidiAudioEngine {
         addSend(0.25);
         break;
       case 38:
-      case 40: // Snare
+      case 40: { // Snare
+        const decay = note.pitch === 40 ? kit.snare.noiseDecay * 1.3 : kit.snare.noiseDecay;
         tone('triangle', kit.snare.body, kit.snare.body * 0.8, kit.snare.bodyDecay, 0.4, 0.03);
-        noise(
-          'highpass',
-          kit.snare.noiseFreq,
-          0.8,
-          note.pitch === 40 ? kit.snare.noiseDecay * 1.3 : kit.snare.noiseDecay,
-          kit.snare.level
-        );
+        if (kit.snare.clap) {
+          for (let i = 0; i < 3; i++) {
+            noise('bandpass', kit.snare.noiseFreq * 1.4, 2.2, decay * 0.6, kit.snare.level, when + i * 0.011, kit.snare.color ?? 'white');
+          }
+        } else {
+          noise('highpass', kit.snare.noiseFreq, 0.8, decay, kit.snare.level, when, kit.snare.color ?? 'white');
+        }
         addSend(0.22);
         break;
+      }
       case 41:
       case 45: // Low tom
         tone('sine', 150 * kit.tomTune, 80 * kit.tomTune, 0.35, 0.75, 0.14);
@@ -1444,23 +3363,23 @@ export class MidiAudioEngine {
         break;
       case 42:
       case 44: // Closed hat
-        noise('highpass', kit.hat.freq, 1, note.pitch === 44 ? kit.hat.closed * 1.3 : kit.hat.closed, kit.hat.level);
+        noise('highpass', kit.hat.freq, 1, note.pitch === 44 ? kit.hat.closed * 1.3 : kit.hat.closed, kit.hat.level, when, kit.hat.color ?? 'white');
         addSend(0.1);
         break;
       case 46: // Open hat
-        noise('highpass', kit.hat.freq * 0.88, 1, kit.hat.open, kit.hat.level * 0.85);
+        noise('highpass', kit.hat.freq * 0.88, 1, kit.hat.open, kit.hat.level * 0.85, when, kit.hat.color ?? 'white');
         addSend(0.18);
         break;
       case 49:
       case 52:
       case 57: // Crash / china
-        noise('highpass', kit.cymbal.freq, 0.7, kit.cymbal.decay, 0.34);
+        noise('highpass', kit.cymbal.freq, 0.7, kit.cymbal.decay, 0.34, when, kit.cymbal.color ?? 'white');
         addSend(0.4);
         break;
       case 51:
       case 53:
       case 59: // Ride
-        noise('bandpass', kit.cymbal.freq * 1.3, 1.6, kit.cymbal.decay * 0.5, 0.3);
+        noise('bandpass', kit.cymbal.freq * 1.3, 1.6, kit.cymbal.decay * 0.5, 0.3, when, kit.cymbal.color ?? 'white');
         tone('square', 880, 820, 0.2, 0.06, 0.1);
         addSend(0.3);
         break;

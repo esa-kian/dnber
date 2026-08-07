@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { INSTRUMENTS, InstrumentId, MidiAudioEngine, TrackSettings, suggestInstrument } from '../services/audioEngine';
+import { INSTRUMENTS, InstrumentGroup, InstrumentId, MidiAudioEngine, TrackSettings, suggestInstrument } from '../services/audioEngine';
 import { ParsedMidi, parseMidi } from '../utils/midiParser';
 
 type MidiPlayerProps = {
@@ -32,7 +32,22 @@ const SpeakerIcon = ({ muted }: { muted: boolean }) => (
   </svg>
 );
 
-const INSTRUMENT_GROUPS = ['Bass', 'Dubstep', 'Techno', 'Lead', 'Keys', 'Pad', 'FX', 'Drums'] as const;
+const INSTRUMENT_GROUPS: InstrumentGroup[] = [
+  'Drums',
+  'Bass',
+  'Acid',
+  'Techno',
+  'Industrial',
+  'Dubstep',
+  'Stab',
+  'Lead',
+  'Pluck',
+  'Keys',
+  'Pad',
+  'Drone',
+  'Perc',
+  'FX'
+];
 
 function formatTime(seconds: number): string {
   const safe = Math.max(0, Math.floor(seconds));
@@ -58,14 +73,23 @@ export const MidiPlayer: React.FC<MidiPlayerProps> = ({ midiBytes, accent, text,
 
   useEffect(() => () => engine.dispose(), [engine]);
 
-  // Load a freshly generated file into the engine
+  // Instrument/volume/mute choices survive a recompose, keyed by track name
+  const mixRef = useRef(new Map<string, TrackSettings>());
   useEffect(() => {
-    setIsPlaying(false);
-    setPosition(0);
+    settings.forEach((setting, index) => {
+      const track = song?.tracks[index];
+      if (track) mixRef.current.set(`${track.name}#${index}`, setting);
+    });
+  }, [settings, song]);
+
+  // Swap in a freshly composed file without interrupting playback
+  useEffect(() => {
     setError(null);
 
     if (!midiBytes) {
       engine.stop();
+      setIsPlaying(false);
+      setPosition(0);
       setSong(null);
       setSettings([]);
       return;
@@ -73,15 +97,25 @@ export const MidiPlayer: React.FC<MidiPlayerProps> = ({ midiBytes, accent, text,
 
     try {
       const parsed = parseMidi(midiBytes);
-      const nextSettings: TrackSettings[] = parsed.tracks.map(track => ({
-        instrument: suggestInstrument(track.name, track.isDrum),
-        volume: track.isDrum ? 0.85 : 0.75,
-        muted: false
-      }));
-      engine.load(parsed, nextSettings);
+      const nextSettings: TrackSettings[] = parsed.tracks.map((track, index) => {
+        const kept = mixRef.current.get(`${track.name}#${index}`);
+        return kept
+          ? { ...kept }
+          : {
+              instrument: suggestInstrument(track.name, track.isDrum),
+              volume: track.isDrum ? 0.85 : 0.75,
+              muted: false
+            };
+      });
+
+      const wasPlaying = engine.isPlaying;
+      const resumeAt = engine.position;
+      engine.load(parsed, nextSettings, resumeAt);
       engine.setMasterVolume(masterVolume);
       setSong(parsed);
       setSettings(nextSettings);
+      setPosition(engine.position);
+      if (wasPlaying) void engine.play();
     } catch (e) {
       console.error(e);
       setSong(null);
@@ -161,16 +195,14 @@ export const MidiPlayer: React.FC<MidiPlayerProps> = ({ midiBytes, accent, text,
     []
   );
 
-  if (!midiBytes) return null;
-
   const duration = song?.duration ?? 0;
 
   return (
     <div className="rounded-lg border border-slate-800/80 bg-slate-900/80 p-5 shadow-2xl shadow-black/20">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-lg font-medium text-slate-200">Preview Player</h3>
+        <h3 className="text-lg font-medium text-slate-200">Live Player</h3>
         <span className={`text-sm font-semibold ${text}`}>
-          {song ? `${song.tracks.length} tracks · ${song.bpm} BPM` : 'Unavailable'}
+          {song ? `${song.tracks.length} tracks · ${song.bpm} BPM` : 'Composing...'}
         </span>
       </div>
 
@@ -286,8 +318,9 @@ export const MidiPlayer: React.FC<MidiPlayerProps> = ({ midiBytes, accent, text,
           </div>
 
           <p className="mt-4 text-xs text-slate-500">
-            Preview uses built-in synth voices. The downloaded <span className={solid.replace('bg-', 'text-')}>.mid</span> file keeps
-            the original General MIDI program assignments for your DAW.
+            Every control recomposes the track live and keeps playing. Playback uses built-in synth voices; the
+            downloaded <span className={solid.replace('bg-', 'text-')}>.mid</span> file keeps the original General MIDI
+            program assignments for your DAW.
           </p>
         </>
       )}

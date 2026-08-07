@@ -1,6 +1,7 @@
 import { MidiFile } from '../utils/midiEncoder';
 import { DRUM_MAPPING, getChord, getScaleNotes } from '../utils/musicTheory';
 import { GenerationStatus, LiquidConfig, MidiTrack } from '../types';
+import { random } from '../utils/random';
 
 const TICKS_PER_BEAT = 480;
 const BAR_TICKS = TICKS_PER_BEAT * 4;
@@ -146,15 +147,15 @@ function clamp01(value: number): number {
 }
 
 function chance(probability: number): boolean {
-  return Math.random() < clamp01(probability);
+  return random() < clamp01(probability);
 }
 
 function pick<T>(items: T[]): T {
-  return items[Math.floor(Math.random() * items.length)];
+  return items[Math.floor(random() * items.length)];
 }
 
 function randomBetween(min: number, max: number): number {
-  return min + Math.random() * (max - min);
+  return min + random() * (max - min);
 }
 
 function barTick(bar: number): number {

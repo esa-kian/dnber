@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { DancefloorConfig, GeneratorConfig, GenerationStatus, HypnoticConfig, JungleConfig, JumpUpConfig, LiquidConfig, NeurofunkConfig } from './types';
 import { generateAmbientDnB } from './services/generator';
 import { generateDancefloor } from './services/dancefloorGenerator';
@@ -9,6 +9,7 @@ import { generateLiquid } from './services/liquidGenerator';
 import { generateNeurofunk } from './services/neurofunkGenerator';
 import { Visualizer } from './components/Visualizer';
 import { MidiPlayer } from './components/MidiPlayer';
+import { seedRandom } from './utils/random';
 
 type DnbMode = 'ambient' | 'jungle' | 'liquid' | 'dancefloor' | 'jumpup' | 'neurofunk';
 type AppMode = DnbMode | 'hypnotic';
@@ -146,6 +147,10 @@ const DownloadIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
 );
 
+const DiceIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.2" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.2" fill="currentColor"/><circle cx="15.5" cy="8.5" r="1.2" fill="currentColor"/><circle cx="8.5" cy="15.5" r="1.2" fill="currentColor"/></svg>
+);
+
 const GuideIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z"/></svg>
 );
@@ -275,58 +280,82 @@ export default function App() {
   });
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [midiBytes, setMidiBytes] = useState<Uint8Array | null>(null);
-
-  const clearOutput = () => {
-    setDownloadUrl(null);
-    setMidiBytes(null);
-  };
+  const [seed, setSeed] = useState(() => Math.floor(Math.random() * 0xffffffff));
 
   const selectMainGenre = (genre: MainGenre) => {
     setMode(genre === 'hypnotic' ? 'hypnotic' : lastDnbMode);
-    clearOutput();
   };
 
   const selectDnbMode = (nextMode: DnbMode) => {
     setMode(nextMode);
     setLastDnbMode(nextMode);
-    clearOutput();
   };
 
-  const handleGenerate = useCallback(async () => {
-    setDownloadUrl(null);
-    setMidiBytes(null);
-    setStatus({ isGenerating: true, progress: 0, message: 'Initializing generator...' });
+  // One composition at a time; changes that land mid-run are coalesced into a re-run
+  const runState = useRef({ running: false, pending: false });
+  const downloadUrlRef = useRef<string | null>(null);
+
+  const compose = useCallback(async () => {
+    if (runState.current.running) {
+      runState.current.pending = true;
+      return;
+    }
+    runState.current.running = true;
+    setStatus({ isGenerating: true, progress: 0, message: 'Composing...' });
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 100));
-      let midiBytes: Uint8Array;
+      seedRandom(seed);
+      let bytes: Uint8Array;
 
       if (mode === 'ambient') {
-        midiBytes = await generateAmbientDnB(config, setStatus);
+        bytes = await generateAmbientDnB(config, setStatus);
       } else if (mode === 'jungle') {
-        midiBytes = await generateJungle(jungleConfig, setStatus);
+        bytes = await generateJungle(jungleConfig, setStatus);
       } else if (mode === 'liquid') {
-        midiBytes = await generateLiquid(liquidConfig, setStatus);
+        bytes = await generateLiquid(liquidConfig, setStatus);
       } else if (mode === 'dancefloor') {
-        midiBytes = await generateDancefloor(dancefloorConfig, setStatus);
+        bytes = await generateDancefloor(dancefloorConfig, setStatus);
       } else if (mode === 'jumpup') {
-        midiBytes = await generateJumpUp(jumpUpConfig, setStatus);
+        bytes = await generateJumpUp(jumpUpConfig, setStatus);
       } else if (mode === 'hypnotic') {
-        midiBytes = await generateHypnoticTechno(hypnoticConfig, setStatus);
+        bytes = await generateHypnoticTechno(hypnoticConfig, setStatus);
       } else {
-        midiBytes = await generateNeurofunk(neuroConfig, setStatus);
+        bytes = await generateNeurofunk(neuroConfig, setStatus);
       }
 
-      const blob = new Blob([midiBytes], { type: 'audio/midi' });
-      const url = URL.createObjectURL(blob);
+      if (downloadUrlRef.current) URL.revokeObjectURL(downloadUrlRef.current);
+      const url = URL.createObjectURL(new Blob([bytes], { type: 'audio/midi' }));
+      downloadUrlRef.current = url;
       setDownloadUrl(url);
-      setMidiBytes(midiBytes);
-      setStatus({ isGenerating: false, progress: 100, message: 'Ready to play or download' });
+      setMidiBytes(bytes);
+      setStatus({ isGenerating: false, progress: 100, message: 'Live' });
     } catch (e) {
       console.error(e);
       setStatus({ isGenerating: false, progress: 0, message: 'Error generating MIDI' });
+    } finally {
+      runState.current.running = false;
+      if (runState.current.pending) {
+        runState.current.pending = false;
+        void latestCompose.current();
+      }
     }
-  }, [config, dancefloorConfig, hypnoticConfig, jungleConfig, jumpUpConfig, liquidConfig, mode, neuroConfig]);
+  }, [config, dancefloorConfig, hypnoticConfig, jungleConfig, jumpUpConfig, liquidConfig, mode, neuroConfig, seed]);
+
+  // A queued re-run must use the newest settings, not the closure that queued it
+  const latestCompose = useRef(compose);
+  useEffect(() => {
+    latestCompose.current = compose;
+  }, [compose]);
+
+  // Every control change recomposes; the debounce keeps slider drags cheap
+  useEffect(() => {
+    const timer = window.setTimeout(() => void compose(), 260);
+    return () => window.clearTimeout(timer);
+  }, [compose]);
+
+  useEffect(() => () => {
+    if (downloadUrlRef.current) URL.revokeObjectURL(downloadUrlRef.current);
+  }, []);
 
   const activeBpm = mode === 'ambient' ? config.bpm : mode === 'jungle' ? jungleConfig.bpm : mode === 'liquid' ? liquidConfig.bpm : mode === 'dancefloor' ? dancefloorConfig.bpm : mode === 'jumpup' ? jumpUpConfig.bpm : mode === 'hypnotic' ? hypnoticConfig.bpm : neuroConfig.bpm;
   const activeRoot = mode === 'ambient' ? config.scaleRoot : mode === 'jungle' ? jungleConfig.scaleRoot : mode === 'liquid' ? liquidConfig.scaleRoot : mode === 'dancefloor' ? dancefloorConfig.scaleRoot : mode === 'jumpup' ? jumpUpConfig.scaleRoot : mode === 'hypnotic' ? hypnoticConfig.scaleRoot : neuroConfig.scaleRoot;
@@ -1336,69 +1365,45 @@ export default function App() {
             <div className="rounded-lg border border-slate-800/80 bg-slate-900/80 p-5 shadow-2xl shadow-black/20">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-lg font-medium text-slate-200">Output</h3>
-                <span className={`rounded-md border px-2 py-1 text-xs font-semibold ${
+                <span className={`flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-semibold ${
                   status.isGenerating
                     ? `${modeTheme.border} ${modeTheme.text}`
-                    : downloadUrl
+                    : midiBytes
                       ? 'border-emerald-400 text-emerald-300'
                       : 'border-slate-700 text-slate-400'
                 }`}>
-                  {status.isGenerating ? 'Generating' : downloadUrl ? 'Ready' : 'Idle'}
+                  <span className={`h-1.5 w-1.5 rounded-full ${
+                    status.isGenerating ? `${modeTheme.solid} animate-pulse` : midiBytes ? 'bg-emerald-400' : 'bg-slate-600'
+                  }`} />
+                  {status.isGenerating ? 'Composing' : midiBytes ? 'Live' : 'Idle'}
                 </span>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-slate-800">
                 <div
                   className={`h-full rounded-full transition-all duration-300 ${modeTheme.solid}`}
-                  style={{ width: `${status.isGenerating || downloadUrl ? status.progress : 0}%` }}
+                  style={{ width: `${status.isGenerating || midiBytes ? status.progress : 0}%` }}
                 />
               </div>
               <div className="mt-3 min-h-5 text-sm text-slate-400">
-                {status.message || downloadName}
+                {status.isGenerating ? status.message : downloadName}
               </div>
+              <button
+                onClick={() => setSeed(Math.floor(Math.random() * 0xffffffff))}
+                className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-950/70 text-sm font-semibold text-slate-300 transition-colors hover:border-slate-500 hover:text-slate-100"
+              >
+                <DiceIcon />
+                <span>New variation</span>
+              </button>
             </div>
 
-            <button
-              onClick={handleGenerate}
-              disabled={status.isGenerating}
-              className={`
-                w-full py-4 rounded-lg font-bold text-lg shadow-lg transition-all transform
-                flex items-center justify-center space-x-2
-                ${status.isGenerating
-                  ? 'bg-slate-700 cursor-wait text-slate-400'
-                  : `${modeTheme.button} hover:scale-[1.02] ${modeTheme.shadow}`}
-              `}
-            >
-              {status.isGenerating ? (
-                <span>Generating... {status.progress}%</span>
-              ) : (
-                <span>{
-                  mode === 'ambient'
-                    ? 'Generate Ambient Composition'
-                    : mode === 'jungle'
-                      ? 'Generate Jungle Composition'
-                      : mode === 'liquid'
-                        ? 'Generate Liquid Composition'
-                      : mode === 'dancefloor'
-                        ? 'Generate Dancefloor Composition'
-                        : mode === 'jumpup'
-                          ? 'Generate Jump Up Composition'
-                        : mode === 'hypnotic'
-                          ? 'Generate Hypnotic Techno Composition'
-                      : 'Generate Neurofunk Composition'
-                }</span>
-              )}
-            </button>
-
-            {!status.isGenerating && (
-              <MidiPlayer
-                midiBytes={midiBytes}
-                accent={modeTheme.accent}
-                text={modeTheme.text}
-                solid={modeTheme.solid}
-                button={modeTheme.button}
-                shadow={modeTheme.shadow}
-              />
-            )}
+            <MidiPlayer
+              midiBytes={midiBytes}
+              accent={modeTheme.accent}
+              text={modeTheme.text}
+              solid={modeTheme.solid}
+              button={modeTheme.button}
+              shadow={modeTheme.shadow}
+            />
 
             {downloadUrl && !status.isGenerating && (
               <a href={downloadUrl} download={downloadName} className="block w-full">

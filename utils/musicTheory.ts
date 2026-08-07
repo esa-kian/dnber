@@ -1,3 +1,4 @@
+import { random } from './random';
 export const SCALES = {
   minor: [0, 2, 3, 5, 7, 8, 10], // Natural Minor
   dorian: [0, 2, 3, 5, 7, 9, 10], // Dorian (DnB classic)
@@ -35,7 +36,7 @@ export function getScaleNotes(root: string, scaleType: keyof typeof SCALES, octa
 
 // Get a random note from the scale
 export function getRandomNote(scaleNotes: number[]): number {
-  return scaleNotes[Math.floor(Math.random() * scaleNotes.length)];
+  return scaleNotes[Math.floor(random() * scaleNotes.length)];
 }
 
 // Get a chord (triad or 7th) from the scale degree
