@@ -10,6 +10,7 @@ import { generateNeurofunk } from './services/neurofunkGenerator';
 import { Visualizer } from './components/Visualizer';
 import { MidiPlayer } from './components/MidiPlayer';
 import { seedRandom } from './utils/random';
+import { setSwing } from './utils/groove';
 
 type DnbMode = 'ambient' | 'jungle' | 'liquid' | 'dancefloor' | 'jumpup' | 'neurofunk';
 type AppMode = DnbMode | 'hypnotic';
@@ -281,6 +282,7 @@ export default function App() {
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [midiBytes, setMidiBytes] = useState<Uint8Array | null>(null);
   const [seed, setSeed] = useState(() => Math.floor(Math.random() * 0xffffffff));
+  const [swing, setSwingAmount] = useState(0);
 
   const selectMainGenre = (genre: MainGenre) => {
     setMode(genre === 'hypnotic' ? 'hypnotic' : lastDnbMode);
@@ -305,6 +307,7 @@ export default function App() {
 
     try {
       seedRandom(seed);
+      setSwing(swing);
       let bytes: Uint8Array;
 
       if (mode === 'ambient') {
@@ -339,7 +342,7 @@ export default function App() {
         void latestCompose.current();
       }
     }
-  }, [config, dancefloorConfig, hypnoticConfig, jungleConfig, jumpUpConfig, liquidConfig, mode, neuroConfig, seed]);
+  }, [config, dancefloorConfig, hypnoticConfig, jungleConfig, jumpUpConfig, liquidConfig, mode, neuroConfig, seed, swing]);
 
   // A queued re-run must use the newest settings, not the closure that queued it
   const latestCompose = useRef(compose);
@@ -558,6 +561,22 @@ export default function App() {
                   </div>
                 </div>
               )}
+
+              <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-4">
+                <SliderControl
+                  label="Swing"
+                  value={swing}
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  accent={modeTheme.accent}
+                  displayValue={swing === 0 ? 'Straight' : `${Math.round(swing * 100)}%`}
+                  onChange={setSwingAmount}
+                />
+                <p className="mt-2 text-xs text-slate-500">
+                  Delays every off-beat 16th. Applies to whichever genre is selected.
+                </p>
+              </div>
 
               {mode === 'ambient' ? (
                 <>
@@ -1398,6 +1417,7 @@ export default function App() {
 
             <MidiPlayer
               midiBytes={midiBytes}
+              fileName={downloadName}
               accent={modeTheme.accent}
               text={modeTheme.text}
               solid={modeTheme.solid}

@@ -1,4 +1,5 @@
 import { MidiTrack } from '../types';
+import { swingTick } from './groove';
 
 /**
  * A TypeScript implementation of a MIDI encoder.
@@ -57,7 +58,8 @@ export class MidiFile {
 
   // Helper to add Note On and Note Off pair
   addNote(track: MidiTrack, channel: number, pitch: number, velocity: number, startTick: number, durationTicks: number) {
-    const safeStartTick = clampInt(startTick, 0, Number.MAX_SAFE_INTEGER);
+    // Swing moves the note as a whole, so the written duration is preserved
+    const safeStartTick = clampInt(swingTick(startTick), 0, Number.MAX_SAFE_INTEGER);
     const safeDurationTicks = Math.max(1, clampInt(durationTicks, 1, Number.MAX_SAFE_INTEGER));
     const safePitch = clampInt(pitch, 0, 127);
     const safeVelocity = clampInt(velocity, 1, 127);

@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { INSTRUMENTS, InstrumentGroup, InstrumentId, MidiAudioEngine, TrackSettings, suggestInstrument } from '../services/audioEngine';
 import { ParsedMidi, parseMidi } from '../utils/midiParser';
+import { estimateWavBytes, pcmFromBuffer, wavFromParts } from '../utils/wav';
 
 type MidiPlayerProps = {
   midiBytes: Uint8Array | null;
+  fileName: string;
   accent: string; // tailwind accent-* class for range inputs
   text: string; // tailwind text-* class
   solid: string; // tailwind bg-* class
@@ -21,6 +23,18 @@ const PauseIcon = () => (
 
 const StopIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
+);
+
+const WaveIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M2 12h3l2-7 3 14 3-11 2.5 8 2-4H22"/>
+  </svg>
+);
+
+const LoopIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+  </svg>
 );
 
 const SpeakerIcon = ({ muted }: { muted: boolean }) => (
@@ -55,7 +69,7 @@ function formatTime(seconds: number): string {
   return `${minutes}:${String(safe % 60).padStart(2, '0')}`;
 }
 
-export const MidiPlayer: React.FC<MidiPlayerProps> = ({ midiBytes, accent, text, solid, button, shadow }) => {
+export const MidiPlayer: React.FC<MidiPlayerProps> = ({ midiBytes, fileName, accent, text, solid, button, shadow }) => {
   const engineRef = useRef<MidiAudioEngine | null>(null);
   const [song, setSong] = useState<ParsedMidi | null>(null);
   const [settings, setSettings] = useState<TrackSettings[]>([]);
@@ -64,6 +78,10 @@ export const MidiPlayer: React.FC<MidiPlayerProps> = ({ midiBytes, accent, text,
   const [masterVolume, setMasterVolume] = useState(0.8);
   const [error, setError] = useState<string | null>(null);
   const [scrubbing, setScrubbing] = useState(false);
+  const [loopBars, setLoopBars] = useState(8);
+  const [loop, setLoop] = useState<{ start: number; end: number } | null>(null);
+  const [rendering, setRendering] = useState(false);
+  const [renderProgress, setRenderProgress] = useState(0);
   const seekTimer = useRef<number | null>(null);
 
   if (engineRef.current === null) {
@@ -72,6 +90,12 @@ export const MidiPlayer: React.FC<MidiPlayerProps> = ({ midiBytes, accent, text,
   const engine = engineRef.current;
 
   useEffect(() => () => engine.dispose(), [engine]);
+
+  // The loop region is re-armed after a recompose when it still fits
+  const loopRef = useRef<{ start: number; end: number } | null>(null);
+  useEffect(() => {
+    loopRef.current = loop;
+  }, [loop]);
 
   // Instrument/volume/mute choices survive a recompose, keyed by track name
   const mixRef = useRef(new Map<string, TrackSettings>());
@@ -111,6 +135,11 @@ export const MidiPlayer: React.FC<MidiPlayerProps> = ({ midiBytes, accent, text,
       const wasPlaying = engine.isPlaying;
       const resumeAt = engine.position;
       engine.load(parsed, nextSettings, resumeAt);
+      if (loopRef.current && loopRef.current.end <= parsed.duration) {
+        engine.setLoop(loopRef.current.start, loopRef.current.end);
+      } else if (loopRef.current) {
+        setLoop(null);
+      }
       engine.setMasterVolume(masterVolume);
       setSong(parsed);
       setSettings(nextSettings);
@@ -177,11 +206,66 @@ export const MidiPlayer: React.FC<MidiPlayerProps> = ({ midiBytes, accent, text,
     if (seekTimer.current !== null) window.clearTimeout(seekTimer.current);
   }, []);
 
+  const duration = song?.duration ?? 0;
+  const barSeconds = song ? (60 / (song.bpm || 120)) * 4 : 2;
+
+  // Loop from the bar the playhead is in, so it locks to the grid
+  const toggleLoop = useCallback(() => {
+    if (loop) {
+      engine.clearLoop();
+      setLoop(null);
+      return;
+    }
+    const startBar = Math.floor(engine.position / barSeconds);
+    const start = startBar * barSeconds;
+    const end = Math.min(duration, start + loopBars * barSeconds);
+    engine.setLoop(start, end);
+    setLoop(engine.loopRegion);
+  }, [barSeconds, duration, engine, loop, loopBars]);
+
+  const changeLoopBars = useCallback((bars: number) => {
+    setLoopBars(bars);
+    if (!loop) return;
+    const end = Math.min(duration, loop.start + bars * barSeconds);
+    engine.setLoop(loop.start, end);
+    setLoop(engine.loopRegion);
+  }, [barSeconds, duration, engine, loop]);
+
   const handleStop = useCallback(() => {
     engine.stop();
     setIsPlaying(false);
     setPosition(0);
   }, [engine]);
+
+  const exportRange = loop ?? { start: 0, end: duration };
+  const exportSeconds = Math.max(0, exportRange.end - exportRange.start);
+  const exportMb = estimateWavBytes(exportSeconds + 3) / (1024 * 1024);
+
+  const exportWav = useCallback(async () => {
+    if (!song || rendering) return;
+    setRendering(true);
+    setRenderProgress(0);
+    setError(null);
+    try {
+      const parts: Int16Array[] = [];
+      await engine.renderRange(exportRange.start, exportRange.end, (buffer, progress) => {
+        parts.push(pcmFromBuffer(buffer));
+        setRenderProgress(progress);
+      });
+      const url = URL.createObjectURL(wavFromParts(parts, 2, 44100));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName.replace(/\.mid$/, '') + (loop ? '_loop' : '') + '.wav';
+      link.click();
+      // Give the browser a moment to start the download before releasing the blob
+      window.setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (e) {
+      console.error(e);
+      setError('Could not render the audio file.');
+    } finally {
+      setRendering(false);
+    }
+  }, [engine, exportRange.end, exportRange.start, fileName, loop, rendering, song]);
 
   const updateTrack = useCallback((index: number, patch: Partial<TrackSettings>) => {
     setSettings(current => current.map((setting, i) => (i === index ? { ...setting, ...patch } : setting)));
@@ -194,8 +278,6 @@ export const MidiPlayer: React.FC<MidiPlayerProps> = ({ midiBytes, accent, text,
     () => INSTRUMENT_GROUPS.map(group => ({ group, items: INSTRUMENTS.filter(item => item.group === group) })),
     []
   );
-
-  const duration = song?.duration ?? 0;
 
   return (
     <div className="rounded-lg border border-slate-800/80 bg-slate-900/80 p-5 shadow-2xl shadow-black/20">
@@ -227,21 +309,58 @@ export const MidiPlayer: React.FC<MidiPlayerProps> = ({ midiBytes, accent, text,
             </button>
 
             <div className="min-w-0 flex-1">
-              <input
-                type="range"
-                min={0}
-                max={Math.max(duration, 0.1)}
-                step={0.05}
-                value={Math.min(position, duration)}
-                onChange={e => handleSeekInput(parseFloat(e.target.value))}
-                className={`h-2 w-full cursor-pointer appearance-none rounded-lg bg-slate-800 ${accent}`}
-                aria-label="Playback position"
-              />
+              <div className="relative">
+                {loop && duration > 0 && (
+                  <div
+                    className={`pointer-events-none absolute top-0 h-2 rounded-lg ${solid} opacity-30`}
+                    style={{
+                      left: `${(loop.start / duration) * 100}%`,
+                      width: `${((loop.end - loop.start) / duration) * 100}%`
+                    }}
+                  />
+                )}
+                <input
+                  type="range"
+                  min={0}
+                  max={Math.max(duration, 0.1)}
+                  step={0.05}
+                  value={Math.min(position, duration)}
+                  onChange={e => handleSeekInput(parseFloat(e.target.value))}
+                  className={`relative h-2 w-full cursor-pointer appearance-none rounded-lg bg-slate-800 ${accent}`}
+                  aria-label="Playback position"
+                />
+              </div>
               <div className="mt-1 flex justify-between text-xs text-slate-500">
-                <span>{formatTime(position)}</span>
+                <span>{formatTime(position)} · bar {Math.floor(position / barSeconds) + 1}</span>
                 <span>{formatTime(duration)}</span>
               </div>
             </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <button
+              onClick={toggleLoop}
+              className={`flex min-h-9 items-center gap-2 rounded-md border px-3 text-xs font-semibold transition-colors ${
+                loop ? `${solid} border-transparent text-slate-950` : 'border-slate-700 text-slate-300 hover:border-slate-500'
+              }`}
+            >
+              <LoopIcon />
+              {loop ? `Looping bars ${Math.round(loop.start / barSeconds) + 1}-${Math.round(loop.end / barSeconds)}` : 'Loop from here'}
+            </button>
+            {[4, 8, 16, 32].map(bars => (
+              <button
+                key={bars}
+                onClick={() => changeLoopBars(bars)}
+                className={`min-h-9 min-w-11 rounded-md border px-2 text-xs font-semibold transition-colors ${
+                  loopBars === bars
+                    ? `border-slate-500 ${text} bg-slate-950/70`
+                    : 'border-slate-800 text-slate-500 hover:border-slate-600'
+                }`}
+              >
+                {bars}
+              </button>
+            ))}
+            <span className="text-xs text-slate-500">bars</span>
           </div>
 
           <div className="mt-4 flex items-center gap-3">
@@ -316,6 +435,27 @@ export const MidiPlayer: React.FC<MidiPlayerProps> = ({ midiBytes, accent, text,
               );
             })}
           </div>
+
+          <button
+            onClick={exportWav}
+            disabled={rendering || exportSeconds <= 0}
+            className={`mt-5 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg font-semibold transition-all ${
+              rendering ? 'cursor-wait bg-slate-800 text-slate-400' : `${button} ${shadow}`
+            }`}
+          >
+            <WaveIcon />
+            <span>
+              {rendering
+                ? `Rendering audio... ${Math.round(renderProgress * 100)}%`
+                : `Export WAV${loop ? ' (loop)' : ''} · ${formatTime(exportSeconds)} · ~${exportMb.toFixed(0)} MB`}
+            </span>
+          </button>
+
+          {!loop && exportSeconds > 120 && (
+            <p className="mt-2 text-xs text-slate-500">
+              Rendering runs at roughly the length of the music. Arm a loop first for a quick bounce.
+            </p>
+          )}
 
           <p className="mt-4 text-xs text-slate-500">
             Every control recomposes the track live and keeps playing. Playback uses built-in synth voices; the

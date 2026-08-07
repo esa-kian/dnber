@@ -2588,7 +2588,7 @@ function midiToFrequency(pitch: number): number {
   return 440 * Math.pow(2, (pitch - 69) / 12);
 }
 
-function createNoiseBuffer(ctx: AudioContext, color: NoiseColor): AudioBuffer {
+function createNoiseBuffer(ctx: BaseAudioContext, color: NoiseColor): AudioBuffer {
   const length = Math.floor(ctx.sampleRate * 2);
   const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
   const data = buffer.getChannelData(0);
@@ -2618,7 +2618,7 @@ function createNoiseBuffer(ctx: AudioContext, color: NoiseColor): AudioBuffer {
 }
 
 /** Stepped random values, played back at varying rates to act as a sample & hold LFO. */
-function createStepBuffer(ctx: AudioContext): AudioBuffer {
+function createStepBuffer(ctx: BaseAudioContext): AudioBuffer {
   const stepSamples = Math.floor(ctx.sampleRate / STEP_LFO_BASE_HZ);
   const steps = 32;
   const buffer = ctx.createBuffer(1, stepSamples * steps, ctx.sampleRate);
@@ -2630,7 +2630,7 @@ function createStepBuffer(ctx: AudioContext): AudioBuffer {
   return buffer;
 }
 
-function createReverbBuffer(ctx: AudioContext): AudioBuffer {
+function createReverbBuffer(ctx: BaseAudioContext): AudioBuffer {
   const seconds = 2.6;
   const length = Math.floor(ctx.sampleRate * seconds);
   const buffer = ctx.createBuffer(2, length, ctx.sampleRate);
@@ -2656,7 +2656,7 @@ function createDistortionCurve(amount: number): Float32Array {
 }
 
 export class MidiAudioEngine {
-  private ctx: AudioContext | null = null;
+  private ctx: BaseAudioContext | null = null;
   private master: GainNode | null = null;
   private reverb: ConvolverNode | null = null;
   private reverbReturn: GainNode | null = null;
@@ -2681,6 +2681,11 @@ export class MidiAudioEngine {
   private playing = false;
   private masterVolume = 0.8;
   private lookahead = LOOKAHEAD_VISIBLE;
+  private loop: { start: number; end: number } | null = null;
+  /** Scheduling crosses the loop point before the audio does, so the playhead
+   *  follows its own copy of the origin, advanced as each wrap actually sounds. */
+  private displayStartedAt = 0;
+  private wraps: { at: number; startedAt: number }[] = [];
 
   onEnded: (() => void) | null = null;
 
@@ -2704,15 +2709,59 @@ export class MidiAudioEngine {
 
   get position(): number {
     if (!this.playing || !this.ctx) return this.offset;
-    return Math.min(this.duration, this.ctx.currentTime - this.startedAt);
+    this.drainWraps();
+    return Math.min(this.duration, this.ctx.currentTime - this.displayStartedAt);
   }
 
-  private ensureContext(): AudioContext {
+  get loopRegion(): { start: number; end: number } | null {
+    return this.loop;
+  }
+
+  setLoop(start: number, end: number) {
+    const from = Math.max(0, Math.min(this.duration, start));
+    const to = Math.max(from + 0.25, Math.min(this.duration, end));
+    this.loop = { start: from, end: to };
+    if (this.playing) this.reschedule();
+  }
+
+  clearLoop() {
+    this.loop = null;
+    if (this.playing) this.reschedule();
+  }
+
+  /** Drops everything queued ahead and re-arms the scheduler from where we are now. */
+  private reschedule() {
+    if (!this.ctx || !this.playing) return;
+    const here = this.position;
+    this.killVoices();
+    this.setBusLevels(1);
+    this.wraps = [];
+    this.startedAt = this.ctx.currentTime - here;
+    this.displayStartedAt = this.startedAt;
+    this.resetCursors(here);
+    this.tick();
+  }
+
+  private drainWraps() {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    while (this.wraps.length && this.wraps[0].at <= now) {
+      this.displayStartedAt = this.wraps.shift()!.startedAt;
+    }
+  }
+
+  private ensureContext(): BaseAudioContext {
     if (!this.ctx) {
       const Ctor: typeof AudioContext =
         window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      const ctx = new Ctor();
+      this.buildGraph(new Ctor());
+    }
+    return this.ctx!;
+  }
 
+  /** Builds the mix bus on any context, live or offline. */
+  private buildGraph(ctx: BaseAudioContext) {
+    {
       // Leave headroom after the limiter: driven bass presets stack up fast
       const outputTrim = ctx.createGain();
       outputTrim.gain.value = 0.8;
@@ -2764,7 +2813,6 @@ export class MidiAudioEngine {
       };
       this.stepBuffer = createStepBuffer(ctx);
     }
-    return this.ctx;
   }
 
   private curveFor(amount: number): Float32Array {
@@ -2855,11 +2903,13 @@ export class MidiAudioEngine {
   async play() {
     if (!this.song || this.playing) return;
     const ctx = this.ensureContext();
-    if (ctx.state === 'suspended') await ctx.resume();
+    if (ctx.state === 'suspended') await (ctx as AudioContext).resume();
 
     if (this.offset >= this.duration) this.offset = 0;
     this.setBusLevels(1);
     this.startedAt = ctx.currentTime - this.offset;
+    this.displayStartedAt = this.startedAt;
+    this.wraps = [];
     this.playing = true;
     this.resetCursors(this.offset);
     this.tick();
@@ -2888,12 +2938,98 @@ export class MidiAudioEngine {
   dispose() {
     document.removeEventListener('visibilitychange', this.onVisibility);
     this.halt();
-    this.ctx?.close();
+    (this.ctx as AudioContext | null)?.close?.();
     this.ctx = null;
+  }
+
+  /**
+   * Renders a stretch of the song through the same voices the live player uses.
+   *
+   * Long pieces are rendered in windows: one OfflineAudioContext holding twenty
+   * minutes of notes never finishes, and the caller gets progress this way. Each
+   * window is preceded by a discarded pre-roll so reverb tails and sustained
+   * notes carry across the seams.
+   */
+  async renderChunk(from: number, to: number, preRoll: number, sampleRate: number): Promise<AudioBuffer> {
+    const song = this.song;
+    if (!song) throw new Error('Nothing to render');
+
+    const windowStart = Math.max(0, from - preRoll);
+    const lead = from - windowStart;
+    const frames = Math.ceil((to - windowStart) * sampleRate);
+
+    const offline = new OfflineAudioContext(2, frames, sampleRate);
+    const renderer = new MidiAudioEngine();
+    renderer.dispose(); // only the graph is needed, not the transport or its listeners
+    renderer.song = song;
+    renderer.bpm = this.bpm;
+    renderer.masterVolume = this.masterVolume;
+    renderer.settings = this.settings.map(setting => ({ ...setting }));
+    renderer.buildGraph(offline);
+
+    song.tracks.forEach((_, index) => {
+      const dry = offline.createGain();
+      dry.gain.value = renderer.gainFor(index);
+      dry.connect(renderer.master!);
+      const wet = offline.createGain();
+      wet.connect(renderer.reverb!);
+      const echo = offline.createGain();
+      echo.connect(renderer.delay!);
+      renderer.trackDry.push(dry);
+      renderer.trackWet.push(wet);
+      renderer.trackEcho.push(echo);
+    });
+    if (renderer.delay) renderer.delay.delayTime.value = (60 / renderer.bpm) * 0.75;
+
+    for (const [index, track] of song.tracks.entries()) {
+      if (renderer.settings[index]?.muted) continue;
+      for (const note of track.notes) {
+        if (note.time >= to) break;
+        // Notes already sounding when the window opens start at its edge
+        if (note.time + note.duration <= windowStart) continue;
+        renderer.spawn(index, note, Math.max(0, note.time - windowStart));
+      }
+    }
+
+    const rendered = await offline.startRendering();
+    if (lead <= 0) return rendered;
+
+    // Trim the pre-roll back off
+    const keepFrames = rendered.length - Math.floor(lead * sampleRate);
+    const trimmed = new AudioBuffer({ length: keepFrames, numberOfChannels: 2, sampleRate });
+    const offset = Math.floor(lead * sampleRate);
+    for (let channel = 0; channel < 2; channel++) {
+      trimmed.copyToChannel(rendered.getChannelData(channel).subarray(offset, offset + keepFrames), channel);
+    }
+    return trimmed;
+  }
+
+  /** Renders a range as a sequence of windows, reporting progress between them. */
+  async renderRange(
+    from: number,
+    to: number,
+    onChunk: (buffer: AudioBuffer, progress: number) => void,
+    sampleRate = 44100
+  ): Promise<void> {
+    const start = Math.max(0, Math.min(this.duration, from));
+    const end = Math.max(start + 0.1, Math.min(this.duration, to));
+    const tail = 3; // let reverb and delay ring out past the last note
+    const chunk = 45;
+    const preRoll = 8;
+    const total = end + tail - start;
+
+    for (let at = start; at < end + tail; at += chunk) {
+      const until = Math.min(end + tail, at + chunk);
+      const buffer = await this.renderChunk(at, until, at === start ? 0 : preRoll, sampleRate);
+      onChunk(buffer, Math.min(1, (until - start) / total));
+      // Yield so the progress paint lands before the next window starts
+      await new Promise(resolve => setTimeout(resolve, 0));
+    }
   }
 
   private halt() {
     this.playing = false;
+    this.wraps = [];
     if (this.timer !== null) {
       window.clearInterval(this.timer);
       this.timer = null;
@@ -2967,26 +3103,41 @@ export class MidiAudioEngine {
     if (!this.song || !this.ctx || !this.playing) return;
     const ctx = this.ctx;
     const horizon = ctx.currentTime + this.lookahead;
+    const song = this.song;
 
-    this.song.tracks.forEach((track, index) => {
-      let cursor = this.cursors[index];
-      while (cursor < track.notes.length) {
-        const note = track.notes[cursor];
-        const when = this.startedAt + note.time;
-        if (when > horizon) break;
-        if (!this.settings[index]?.muted) {
-          this.spawn(index, note, Math.max(when, ctx.currentTime));
+    // Each pass fills the window up to the loop point; crossing it rewinds the
+    // cursors and keeps filling, so the wrap is scheduled ahead like any note.
+    for (let pass = 0; pass < 16; pass++) {
+      const loopEndTime = this.loop ? this.startedAt + this.loop.end : Infinity;
+      const limit = Math.min(horizon, loopEndTime);
+
+      song.tracks.forEach((track, index) => {
+        let cursor = this.cursors[index];
+        while (cursor < track.notes.length) {
+          const note = track.notes[cursor];
+          const when = this.startedAt + note.time;
+          if (when > limit) break;
+          if (!this.settings[index]?.muted) {
+            this.spawn(index, note, Math.max(when, ctx.currentTime));
+          }
+          cursor++;
         }
-        cursor++;
-      }
-      this.cursors[index] = cursor;
-    });
+        this.cursors[index] = cursor;
+      });
+
+      if (!this.loop || loopEndTime > horizon) break;
+
+      const nextStartedAt = loopEndTime - this.loop.start;
+      this.wraps.push({ at: loopEndTime, startedAt: nextStartedAt });
+      this.startedAt = nextStartedAt;
+      this.resetCursors(this.loop.start);
+    }
 
     // Drop finished voices so the array does not grow across a long track
     const now = ctx.currentTime;
     this.voices = this.voices.filter(voice => voice.stopAt > now);
 
-    if (this.position >= this.duration) {
+    if (!this.loop && this.position >= this.duration) {
       this.stop();
       this.onEnded?.();
     }
