@@ -6,6 +6,7 @@ import { estimateWavBytes, pcmFromBuffer, wavFromParts } from '../utils/wav';
 type MidiPlayerProps = {
   midiBytes: Uint8Array | null;
   fileName: string;
+  humanize: number;
   accent: string; // tailwind accent-* class for range inputs
   text: string; // tailwind text-* class
   solid: string; // tailwind bg-* class
@@ -69,7 +70,7 @@ function formatTime(seconds: number): string {
   return `${minutes}:${String(safe % 60).padStart(2, '0')}`;
 }
 
-export const MidiPlayer: React.FC<MidiPlayerProps> = ({ midiBytes, fileName, accent, text, solid, button, shadow }) => {
+export const MidiPlayer: React.FC<MidiPlayerProps> = ({ midiBytes, fileName, humanize, accent, text, solid, button, shadow }) => {
   const engineRef = useRef<MidiAudioEngine | null>(null);
   const [song, setSong] = useState<ParsedMidi | null>(null);
   const [settings, setSettings] = useState<TrackSettings[]>([]);
@@ -90,6 +91,10 @@ export const MidiPlayer: React.FC<MidiPlayerProps> = ({ midiBytes, fileName, acc
   const engine = engineRef.current;
 
   useEffect(() => () => engine.dispose(), [engine]);
+
+  useEffect(() => {
+    engine.setHumanize(humanize);
+  }, [engine, humanize]);
 
   // The loop region is re-armed after a recompose when it still fits
   const loopRef = useRef<{ start: number; end: number } | null>(null);

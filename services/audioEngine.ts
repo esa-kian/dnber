@@ -1,4 +1,5 @@
 import { ParsedMidi, ParsedNote } from '../utils/midiParser';
+import { createRng } from '../utils/random';
 
 /**
  * A small Web Audio synthesizer that renders parsed MIDI in the browser.
@@ -2589,6 +2590,7 @@ function midiToFrequency(pitch: number): number {
 }
 
 function createNoiseBuffer(ctx: BaseAudioContext, color: NoiseColor): AudioBuffer {
+  const noise = createRng(0x9e3d_71b1);
   const length = Math.floor(ctx.sampleRate * 2);
   const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
   const data = buffer.getChannelData(0);
@@ -2597,7 +2599,7 @@ function createNoiseBuffer(ctx: BaseAudioContext, color: NoiseColor): AudioBuffe
     // Paul Kellet's economy pink noise filter: darker, closer to analogue hiss
     let b0 = 0, b1 = 0, b2 = 0;
     for (let i = 0; i < length; i++) {
-      const white = Math.random() * 2 - 1;
+      const white = noise() * 2 - 1;
       b0 = 0.99765 * b0 + white * 0.099046;
       b1 = 0.963 * b1 + white * 0.2965164;
       b2 = 0.57 * b2 + white * 1.0526913;
@@ -2612,25 +2614,27 @@ function createNoiseBuffer(ctx: BaseAudioContext, color: NoiseColor): AudioBuffe
       data[i] = (sum / partials.length) * 0.9;
     }
   } else {
-    for (let i = 0; i < length; i++) data[i] = Math.random() * 2 - 1;
+    for (let i = 0; i < length; i++) data[i] = noise() * 2 - 1;
   }
   return buffer;
 }
 
 /** Stepped random values, played back at varying rates to act as a sample & hold LFO. */
 function createStepBuffer(ctx: BaseAudioContext): AudioBuffer {
+  const stepRng = createRng(0x2545_f491);
   const stepSamples = Math.floor(ctx.sampleRate / STEP_LFO_BASE_HZ);
   const steps = 32;
   const buffer = ctx.createBuffer(1, stepSamples * steps, ctx.sampleRate);
   const data = buffer.getChannelData(0);
   for (let step = 0; step < steps; step++) {
-    const value = Math.random() * 2 - 1;
+    const value = stepRng() * 2 - 1;
     data.fill(value, step * stepSamples, (step + 1) * stepSamples);
   }
   return buffer;
 }
 
 function createReverbBuffer(ctx: BaseAudioContext): AudioBuffer {
+  const tailRng = createRng(0x6d2b_79f5);
   const seconds = 2.6;
   const length = Math.floor(ctx.sampleRate * seconds);
   const buffer = ctx.createBuffer(2, length, ctx.sampleRate);
@@ -2638,7 +2642,7 @@ function createReverbBuffer(ctx: BaseAudioContext): AudioBuffer {
     const data = buffer.getChannelData(channel);
     for (let i = 0; i < length; i++) {
       const decay = Math.pow(1 - i / length, 2.6);
-      data[i] = (Math.random() * 2 - 1) * decay;
+      data[i] = (tailRng() * 2 - 1) * decay;
     }
   }
   return buffer;
@@ -2680,6 +2684,9 @@ export class MidiAudioEngine {
   private offset = 0; // seconds into the song when paused/stopped
   private playing = false;
   private masterVolume = 0.8;
+  private humanize = 0.45;
+  /** Per-voice imperfection comes from here, so a render can be repeated exactly. */
+  private rng = createRng(0x1f35_3cd0);
   private lookahead = LOOKAHEAD_VISIBLE;
   private loop: { start: number; end: number } | null = null;
   /** Scheduling crosses the loop point before the audio does, so the playhead
@@ -2893,6 +2900,16 @@ export class MidiAudioEngine {
     this.settings[index].muted = muted;
     const node = this.trackDry[index];
     if (node && this.ctx) node.gain.setTargetAtTime(this.gainFor(index), this.ctx.currentTime, 0.02);
+  }
+
+  /** How much analogue drift each voice gets: detune, cutoff, timing and noise phase. */
+  setHumanize(amount: number) {
+    this.humanize = Math.max(0, Math.min(1, amount));
+  }
+
+  /** Symmetric jitter, scaled by the current feel setting. */
+  private drift(range: number): number {
+    return (this.rng() * 2 - 1) * range * this.humanize;
   }
 
   setMasterVolume(volume: number) {
@@ -3198,10 +3215,11 @@ export class MidiAudioEngine {
     const nodes: AudioScheduledSourceNode[] = [];
 
     const amp = ctx.createGain();
-    const peak = preset.gain * (0.32 + velocity * 0.68);
+    const peak = preset.gain * (0.32 + velocity * 0.68) * (1 + this.drift(0.06));
+    const attack = Math.max(0.001, preset.attack * (1 + this.drift(0.12)));
     amp.gain.setValueAtTime(0.0001, when);
-    amp.gain.linearRampToValueAtTime(peak, when + preset.attack);
-    amp.gain.setTargetAtTime(peak * preset.sustain, when + preset.attack, Math.max(0.02, preset.decay / 3));
+    amp.gain.linearRampToValueAtTime(peak, when + attack);
+    amp.gain.setTargetAtTime(peak * preset.sustain, when + attack, Math.max(0.02, preset.decay / 3));
     amp.gain.setTargetAtTime(0.0001, endAt, Math.max(0.02, preset.release / 3));
 
     // Optional rhythmic gate between the amp envelope and the output
@@ -3218,11 +3236,13 @@ export class MidiAudioEngine {
     filter.type = preset.filterType;
     filter.Q.value = preset.resonance;
     const tracking = preset.keyTracking ? frequency * preset.keyTracking * 2 : 0;
-    const floor = Math.min(16000, preset.cutoff + tracking);
-    const ceiling = Math.min(18000, floor + preset.cutoffEnv * (0.4 + velocity * 0.6));
+    // A real filter never lands on exactly the same cutoff twice
+    const cutoffDrift = 1 + this.drift(0.05);
+    const floor = Math.min(16000, (preset.cutoff + tracking) * cutoffDrift);
+    const ceiling = Math.min(18000, floor + preset.cutoffEnv * cutoffDrift * (0.4 + velocity * 0.6));
     filter.frequency.setValueAtTime(floor, when);
-    filter.frequency.linearRampToValueAtTime(ceiling, when + preset.attack + 0.01);
-    filter.frequency.setTargetAtTime(floor + (ceiling - floor) * preset.sustain, when + preset.attack + 0.01, Math.max(0.03, preset.decay / 2));
+    filter.frequency.linearRampToValueAtTime(ceiling, when + attack + 0.01);
+    filter.frequency.setTargetAtTime(floor + (ceiling - floor) * preset.sustain, when + attack + 0.01, Math.max(0.03, preset.decay / 2));
 
     // oscillators -> filter -> [highpass] -> [formants] -> [drive] -> amp -> gate -> outputs
     let chainEnd: AudioNode = filter;
@@ -3270,7 +3290,7 @@ export class MidiAudioEngine {
     let voiceOut: AudioNode = ampOut;
     if (preset.unison?.spread) {
       const panner = ctx.createStereoPanner();
-      panner.pan.value = (Math.random() * 2 - 1) * preset.unison.spread;
+      panner.pan.value = (this.rng() * 2 - 1) * preset.unison.spread;
       ampOut.connect(panner);
       voiceOut = panner;
     }
@@ -3356,7 +3376,9 @@ export class MidiAudioEngine {
           osc.frequency.value = layerFrequency;
         }
         const offset = copies > 1 ? (copy / (copies - 1) - 0.5) * 2 * spreadCents : 0;
-        osc.detune.value = (layer.detune ?? 0) + offset;
+        // Oscillators always restart at phase zero here, so identical notes would
+        // stack up perfectly; a few cents of drift keeps repeats from ringing alike
+        osc.detune.value = (layer.detune ?? 0) + offset + this.drift(7);
         if (vibratoGain) vibratoGain.connect(osc.detune);
         fmGain?.connect(osc.frequency);
 
@@ -3378,7 +3400,7 @@ export class MidiAudioEngine {
       noiseGain.gain.value = preset.noise;
       noise.connect(noiseGain);
       noiseGain.connect(ringInput);
-      noise.start(when);
+      noise.start(when, this.humanize > 0 ? this.rng() * noise.buffer.duration : 0);
       noise.stop(stopAt);
       nodes.push(noise);
     }
@@ -3392,7 +3414,7 @@ export class MidiAudioEngine {
     const wet = this.trackWet[trackIndex];
     if (!dry) return;
 
-    const velocity = 0.25 + (note.velocity / 127) * 0.75;
+    const velocity = (0.25 + (note.velocity / 127) * 0.75) * (1 + this.drift(0.07));
     const out = ctx.createGain();
     out.gain.value = velocity;
 
@@ -3423,8 +3445,11 @@ export class MidiAudioEngine {
     const tone = (type: OscillatorType, from: number, to: number, decay: number, level: number, glide: number) => {
       const osc = ctx.createOscillator();
       osc.type = type;
-      osc.frequency.setValueAtTime(from, when);
-      osc.frequency.exponentialRampToValueAtTime(Math.max(20, to), when + glide);
+      // Drum machines drift in tuning and decay from hit to hit
+      const tune = 1 + this.drift(0.02);
+      decay *= 1 + this.drift(0.08);
+      osc.frequency.setValueAtTime(from * tune, when);
+      osc.frequency.exponentialRampToValueAtTime(Math.max(20, to * tune), when + glide);
       const gain = ctx.createGain();
       gain.gain.setValueAtTime(level, when);
       gain.gain.exponentialRampToValueAtTime(0.0001, when + decay);
@@ -3451,15 +3476,18 @@ export class MidiAudioEngine {
       source.loop = true;
       const filter = ctx.createBiquadFilter();
       filter.type = filterType;
-      filter.frequency.value = frequency;
+      filter.frequency.value = frequency * (1 + this.drift(0.04));
       filter.Q.value = q;
+      decay *= 1 + this.drift(0.1);
       const gain = ctx.createGain();
       gain.gain.setValueAtTime(level, at);
       gain.gain.exponentialRampToValueAtTime(0.0001, at + decay);
       source.connect(filter);
       filter.connect(gain);
       gain.connect(out);
-      source.start(at);
+      // Starting every hit at sample zero is what makes repeated hats sound
+      // machine-gunned; each one takes a different slice of the noise instead
+      source.start(at, this.humanize > 0 ? this.rng() * source.buffer.duration : 0);
       source.stop(at + decay + 0.02);
       nodes.push(source);
       tail = Math.max(tail, at - when + decay);

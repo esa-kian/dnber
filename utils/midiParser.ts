@@ -6,6 +6,7 @@
 
 export interface ParsedNote {
   tick: number;
+  durationTicks: number; // exact written length; `duration` is clamped for playback
   time: number; // seconds
   duration: number; // seconds
   pitch: number;
@@ -247,6 +248,7 @@ export function parseMidi(bytes: Uint8Array): ParsedMidi {
           const startTime = tickToSeconds(started.tick);
           notes.push({
             tick: started.tick,
+            durationTicks: event.tick - started.tick,
             time: startTime,
             duration: Math.max(0.02, tickToSeconds(event.tick) - startTime),
             pitch: event.pitch,

@@ -11,6 +11,7 @@ import { Visualizer } from './components/Visualizer';
 import { MidiPlayer } from './components/MidiPlayer';
 import { seedRandom } from './utils/random';
 import { setSwing } from './utils/groove';
+import { setHumanize } from './utils/humanize';
 
 type DnbMode = 'ambient' | 'jungle' | 'liquid' | 'dancefloor' | 'jumpup' | 'neurofunk';
 type AppMode = DnbMode | 'hypnotic';
@@ -283,6 +284,7 @@ export default function App() {
   const [midiBytes, setMidiBytes] = useState<Uint8Array | null>(null);
   const [seed, setSeed] = useState(() => Math.floor(Math.random() * 0xffffffff));
   const [swing, setSwingAmount] = useState(0);
+  const [humanize, setHumanizeAmount] = useState(0.45);
 
   const selectMainGenre = (genre: MainGenre) => {
     setMode(genre === 'hypnotic' ? 'hypnotic' : lastDnbMode);
@@ -308,6 +310,15 @@ export default function App() {
     try {
       seedRandom(seed);
       setSwing(swing);
+      const bpm =
+        mode === 'ambient' ? config.bpm
+        : mode === 'jungle' ? jungleConfig.bpm
+        : mode === 'liquid' ? liquidConfig.bpm
+        : mode === 'dancefloor' ? dancefloorConfig.bpm
+        : mode === 'jumpup' ? jumpUpConfig.bpm
+        : mode === 'hypnotic' ? hypnoticConfig.bpm
+        : neuroConfig.bpm;
+      setHumanize(humanize, seed, bpm);
       let bytes: Uint8Array;
 
       if (mode === 'ambient') {
@@ -342,7 +353,7 @@ export default function App() {
         void latestCompose.current();
       }
     }
-  }, [config, dancefloorConfig, hypnoticConfig, jungleConfig, jumpUpConfig, liquidConfig, mode, neuroConfig, seed, swing]);
+  }, [config, dancefloorConfig, hypnoticConfig, jungleConfig, jumpUpConfig, liquidConfig, mode, neuroConfig, seed, swing, humanize]);
 
   // A queued re-run must use the newest settings, not the closure that queued it
   const latestCompose = useRef(compose);
@@ -576,6 +587,21 @@ export default function App() {
                 <p className="mt-2 text-xs text-slate-500">
                   Delays every off-beat 16th. Applies to whichever genre is selected.
                 </p>
+                <div className="mt-4">
+                  <SliderControl
+                    label="Human feel"
+                    value={humanize}
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    accent={modeTheme.accent}
+                    displayValue={humanize === 0 ? 'Machine' : `${Math.round(humanize * 100)}%`}
+                    onChange={setHumanizeAmount}
+                  />
+                  <p className="mt-2 text-xs text-slate-500">
+                    Loosens timing, varies velocity, rolls stacked chords and drifts each voice.
+                  </p>
+                </div>
               </div>
 
               {mode === 'ambient' ? (
@@ -1418,6 +1444,7 @@ export default function App() {
             <MidiPlayer
               midiBytes={midiBytes}
               fileName={downloadName}
+              humanize={humanize}
               accent={modeTheme.accent}
               text={modeTheme.text}
               solid={modeTheme.solid}

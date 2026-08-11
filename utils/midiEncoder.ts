@@ -1,5 +1,6 @@
-import { MidiTrack } from '../types';
+import { MidiEvent, MidiTrack } from '../types';
 import { swingTick } from './groove';
+import { humanizeNote } from './humanize';
 
 /**
  * A TypeScript implementation of a MIDI encoder.
@@ -58,11 +59,19 @@ export class MidiFile {
 
   // Helper to add Note On and Note Off pair
   addNote(track: MidiTrack, channel: number, pitch: number, velocity: number, startTick: number, durationTicks: number) {
-    // Swing moves the note as a whole, so the written duration is preserved
-    const safeStartTick = clampInt(swingTick(startTick), 0, Number.MAX_SAFE_INTEGER);
-    const safeDurationTicks = Math.max(1, clampInt(durationTicks, 1, Number.MAX_SAFE_INTEGER));
-    const safePitch = clampInt(pitch, 0, 127);
-    const safeVelocity = clampInt(velocity, 1, 127);
+    // Swing moves the note as a whole, so the written duration is preserved,
+    // then performance feel scatters the timing, velocity and length a little
+    const shaped = humanizeNote({
+      channel,
+      pitch,
+      startTick: swingTick(startTick),
+      durationTicks,
+      velocity
+    });
+    const safeStartTick = clampInt(shaped.startTick, 0, Number.MAX_SAFE_INTEGER);
+    const safeDurationTicks = Math.max(1, clampInt(shaped.durationTicks, 1, Number.MAX_SAFE_INTEGER));
+    const safePitch = clampInt(shaped.pitch, 0, 127);
+    const safeVelocity = clampInt(shaped.velocity, 1, 127);
 
     // We insert events raw; sorting happens at build time
     track.events.push({
@@ -124,6 +133,57 @@ export class MidiFile {
     });
   }
 
+  /**
+   * Stops a note before the next one of the same pitch begins.
+   *
+   * Swing and humanisation move notes independently, so a long note can end up
+   * outliving the next strike of the same key on the same channel. Players
+   * disagree on what that means — some hold the note forever — so the earlier
+   * note is shortened to hand over cleanly.
+   */
+  private trimOverlaps(track: MidiTrack) {
+    const byKey = new Map<number, { on: MidiEvent; off?: MidiEvent }[]>();
+
+    for (const event of track.events) {
+      if (event.type !== 0x90 && event.type !== 0x80) continue;
+      const key = (event.channel << 8) | event.param1;
+      const pairs = byKey.get(key) ?? [];
+      if (event.type === 0x90) {
+        pairs.push({ on: event });
+      } else {
+        // Note offs are pushed straight after their note on, so the newest open
+        // pair is the one this belongs to
+        const open = [...pairs].reverse().find(pair => !pair.off);
+        if (open) open.off = event;
+      }
+      byKey.set(key, pairs);
+    }
+
+    const dropped = new Set<MidiEvent>();
+
+    for (const pairs of byKey.values()) {
+      const sorted = pairs.filter(pair => pair.off).sort((a, b) => a.on.deltaTime - b.on.deltaTime);
+      for (let i = 0; i < sorted.length - 1; i++) {
+        const current = sorted[i];
+        const nextOn = sorted[i + 1].on.deltaTime;
+
+        if (nextOn <= current.on.deltaTime) {
+          // Both strikes land on the same tick, so there is no room to hand over.
+          // The earlier one could never be heard separately; drop it outright.
+          dropped.add(current.on);
+          dropped.add(current.off!);
+          continue;
+        }
+
+        // A note off landing exactly on the next note on is fine: offs are
+        // ordered before ons at the same tick
+        if (current.off!.deltaTime > nextOn) current.off!.deltaTime = nextOn;
+      }
+    }
+
+    if (dropped.size) track.events = track.events.filter(event => !dropped.has(event));
+  }
+
   generate(): Uint8Array {
     const headerChunk = [
       ...stringToBytes('MThd'),
@@ -136,6 +196,8 @@ export class MidiFile {
     const trackChunks: number[] = [];
 
     for (const track of this.tracks) {
+      this.trimOverlaps(track);
+
       // 1. Sort events by absolute time
       track.events.sort((a, b) => {
         if (a.deltaTime !== b.deltaTime) return a.deltaTime - b.deltaTime;
