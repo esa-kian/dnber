@@ -2,6 +2,7 @@ import { MidiFile } from '../utils/midiEncoder';
 import { GeneratorConfig, GenerationStatus, MidiTrack } from '../types';
 import { DRUM_MAPPING, getScaleNotes, getChord } from '../utils/musicTheory';
 import { random } from '../utils/random';
+import { yieldToUi } from '../utils/schedule';
 
 const TICKS_PER_BEAT = 480;
 const BEATS_PER_BAR = 4;
@@ -653,7 +654,7 @@ export async function generateAmbientDnB(
       message: `Composing ${section.name} (${sectionIndex + 1}/${arrangement.length})`
     });
 
-    await new Promise(resolve => setTimeout(resolve, 10));
+    await yieldToUi();
 
     let sectionBar = currentBar;
     const sectionEnd = currentBar + section.bars;

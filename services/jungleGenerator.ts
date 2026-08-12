@@ -2,6 +2,7 @@ import { MidiFile } from '../utils/midiEncoder';
 import { DRUM_MAPPING, getChord, getScaleNotes } from '../utils/musicTheory';
 import { GenerationStatus, JungleConfig, MidiTrack } from '../types';
 import { random } from '../utils/random';
+import { yieldToUi } from '../utils/schedule';
 
 const TICKS_PER_BEAT = 480;
 const BAR_TICKS = TICKS_PER_BEAT * 4;
@@ -595,7 +596,7 @@ export async function generateJungle(
       message: `Chopping ${section.name} (${sectionIndex + 1}/${arrangement.length})`
     });
 
-    await new Promise(resolve => setTimeout(resolve, 10));
+    await yieldToUi();
 
     for (let bar = currentBar; bar < sectionEnd; bar += 2) {
       const localBar = bar - currentBar;

@@ -2,6 +2,7 @@ import { MidiFile } from '../utils/midiEncoder';
 import { DRUM_MAPPING, getChord, getScaleNotes } from '../utils/musicTheory';
 import { DancefloorConfig, GenerationStatus, MidiTrack } from '../types';
 import { random } from '../utils/random';
+import { yieldToUi } from '../utils/schedule';
 
 const TICKS_PER_BEAT = 480;
 const BAR_TICKS = TICKS_PER_BEAT * 4;
@@ -572,7 +573,7 @@ export async function generateDancefloor(
       message: `Arranging ${section.name} (${sectionIndex + 1}/${arrangement.length})`
     });
 
-    await new Promise(resolve => setTimeout(resolve, 10));
+    await yieldToUi();
     addBuildFx(midi, trackFx, trackDrums, currentBar, section, normalizedConfig, scaleLead);
 
     for (let bar = currentBar; bar < sectionEnd; bar += 2) {

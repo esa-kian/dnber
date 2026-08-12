@@ -226,6 +226,8 @@ const SliderControl: React.FC<SliderControlProps> = ({
       step={step}
       value={value}
       onChange={(e) => onChange(step ? parseFloat(e.target.value) : parseInt(e.target.value))}
+      aria-label={label}
+      aria-valuetext={displayValue ?? String(value)}
       className={`w-full h-2 rounded-lg bg-slate-800 appearance-none cursor-pointer ${accent}`}
     />
   </div>
@@ -662,6 +664,7 @@ export default function App() {
                     <button
                       key={option.value}
                       type="button"
+                        aria-pressed={selected}
                       onClick={() => {
                         selectMainGenre(option.value);
                       }}
@@ -690,6 +693,7 @@ export default function App() {
                       <button
                         key={option.value}
                         type="button"
+                        aria-pressed={selected}
                         onClick={() => {
                           selectDnbMode(option.value);
                         }}
@@ -790,6 +794,7 @@ export default function App() {
                       <select
                         value={config.scaleRoot}
                         onChange={(e) => setConfig({...config, scaleRoot: e.target.value})}
+                        aria-label="Key"
                         className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white focus:ring-2 focus:ring-cyan-500 outline-none"
                       >
                         {KEYS.map(note => <option key={note} value={note}>{note}</option>)}
@@ -800,6 +805,7 @@ export default function App() {
                       <select
                         value={config.scaleType}
                         onChange={(e) => setConfig({...config, scaleType: e.target.value as GeneratorConfig['scaleType']})}
+                        aria-label="Scale type"
                         className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white focus:ring-2 focus:ring-cyan-500 outline-none"
                       >
                         <option value="dorian">Dorian (Classic DnB)</option>
@@ -894,6 +900,7 @@ export default function App() {
                       <select
                         value={jungleConfig.scaleRoot}
                         onChange={(e) => setJungleConfig({...jungleConfig, scaleRoot: e.target.value})}
+                        aria-label="Key"
                         className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white focus:ring-2 focus:ring-emerald-500 outline-none"
                       >
                         {KEYS.map(note => <option key={note} value={note}>{note}</option>)}
@@ -904,6 +911,7 @@ export default function App() {
                       <select
                         value={jungleConfig.scaleType}
                         onChange={(e) => setJungleConfig({...jungleConfig, scaleType: e.target.value as JungleConfig['scaleType']})}
+                        aria-label="Scale type"
                         className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white focus:ring-2 focus:ring-emerald-500 outline-none"
                       >
                         <option value="minor">Natural Minor</option>
@@ -1008,6 +1016,7 @@ export default function App() {
                       <select
                         value={liquidConfig.scaleRoot}
                         onChange={(e) => setLiquidConfig({...liquidConfig, scaleRoot: e.target.value})}
+                        aria-label="Key"
                         className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white focus:ring-2 focus:ring-sky-500 outline-none"
                       >
                         {KEYS.map(note => <option key={note} value={note}>{note}</option>)}
@@ -1018,6 +1027,7 @@ export default function App() {
                       <select
                         value={liquidConfig.scaleType}
                         onChange={(e) => setLiquidConfig({...liquidConfig, scaleType: e.target.value as LiquidConfig['scaleType']})}
+                        aria-label="Scale type"
                         className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white focus:ring-2 focus:ring-sky-500 outline-none"
                       >
                         <option value="dorian">Dorian</option>
@@ -1121,6 +1131,7 @@ export default function App() {
                       <select
                         value={dancefloorConfig.scaleRoot}
                         onChange={(e) => setDancefloorConfig({...dancefloorConfig, scaleRoot: e.target.value})}
+                        aria-label="Key"
                         className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white focus:ring-2 focus:ring-lime-400 outline-none"
                       >
                         {KEYS.map(note => <option key={note} value={note}>{note}</option>)}
@@ -1131,6 +1142,7 @@ export default function App() {
                       <select
                         value={dancefloorConfig.scaleType}
                         onChange={(e) => setDancefloorConfig({...dancefloorConfig, scaleType: e.target.value as DancefloorConfig['scaleType']})}
+                        aria-label="Scale type"
                         className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white focus:ring-2 focus:ring-lime-400 outline-none"
                       >
                         <option value="minor">Natural Minor</option>
@@ -1234,6 +1246,7 @@ export default function App() {
                       <select
                         value={jumpUpConfig.scaleRoot}
                         onChange={(e) => setJumpUpConfig({...jumpUpConfig, scaleRoot: e.target.value})}
+                        aria-label="Key"
                         className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white focus:ring-2 focus:ring-rose-500 outline-none"
                       >
                         {KEYS.map(note => <option key={note} value={note}>{note}</option>)}
@@ -1244,6 +1257,7 @@ export default function App() {
                       <select
                         value={jumpUpConfig.scaleType}
                         onChange={(e) => setJumpUpConfig({...jumpUpConfig, scaleType: e.target.value as JumpUpConfig['scaleType']})}
+                        aria-label="Scale type"
                         className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white focus:ring-2 focus:ring-rose-500 outline-none"
                       >
                         <option value="minor">Natural Minor</option>
@@ -1347,6 +1361,7 @@ export default function App() {
                       <select
                         value={hypnoticConfig.scaleRoot}
                         onChange={(e) => setHypnoticConfig({...hypnoticConfig, scaleRoot: e.target.value})}
+                        aria-label="Key"
                         className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white focus:ring-2 focus:ring-teal-400 outline-none"
                       >
                         {KEYS.map(note => <option key={note} value={note}>{note}</option>)}
@@ -1357,6 +1372,7 @@ export default function App() {
                       <select
                         value={hypnoticConfig.scaleType}
                         onChange={(e) => setHypnoticConfig({...hypnoticConfig, scaleType: e.target.value as HypnoticConfig['scaleType']})}
+                        aria-label="Scale type"
                         className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white focus:ring-2 focus:ring-teal-400 outline-none"
                       >
                         <option value="phrygian">Phrygian (Tense)</option>
@@ -1460,6 +1476,7 @@ export default function App() {
                       <select
                         value={neuroConfig.scaleRoot}
                         onChange={(e) => setNeuroConfig({...neuroConfig, scaleRoot: e.target.value})}
+                        aria-label="Key"
                         className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white focus:ring-2 focus:ring-amber-500 outline-none"
                       >
                         {KEYS.map(note => <option key={note} value={note}>{note}</option>)}
@@ -1470,6 +1487,7 @@ export default function App() {
                       <select
                         value={neuroConfig.scaleType}
                         onChange={(e) => setNeuroConfig({...neuroConfig, scaleType: e.target.value as NeurofunkConfig['scaleType']})}
+                        aria-label="Scale type"
                         className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white focus:ring-2 focus:ring-amber-500 outline-none"
                       >
                         <option value="phrygian">Phrygian (Tense)</option>
@@ -1690,11 +1708,13 @@ export default function App() {
             />
 
             {downloadUrl && !status.isGenerating && (
-              <a href={downloadUrl} download={downloadName} className="block w-full">
-                <button className="w-full py-3 bg-emerald-400 hover:bg-emerald-300 text-slate-950 rounded-lg font-semibold shadow-lg shadow-emerald-500/20 flex items-center justify-center space-x-2 transition-all">
-                  <DownloadIcon />
-                  <span>Download MIDI File</span>
-                </button>
+              <a
+                href={downloadUrl}
+                download={downloadName}
+                className="flex w-full items-center justify-center space-x-2 rounded-lg bg-emerald-400 py-3 font-semibold text-slate-950 shadow-lg shadow-emerald-500/20 transition-all hover:bg-emerald-300"
+              >
+                <DownloadIcon />
+                <span>Download MIDI File</span>
               </a>
             )}
           </div>

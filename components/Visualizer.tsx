@@ -93,5 +93,13 @@ export const Visualizer: React.FC<VisualizerProps> = ({ isGenerating, primaryCol
     return () => cancelAnimationFrame(animationId);
   }, [isGenerating, primaryColor, secondaryColor]);
 
-  return <canvas ref={canvasRef} className="h-64 w-full rounded-lg border border-slate-800/90 bg-slate-950 shadow-2xl shadow-black/25" />;
+  // Decorative only: the drawing is animated shapes, not a reading of the audio,
+  // so there is nothing here worth announcing
+  return (
+    <canvas
+      ref={canvasRef}
+      aria-hidden="true"
+      className="h-64 w-full rounded-lg border border-slate-800/90 bg-slate-950 shadow-2xl shadow-black/25"
+    />
+  );
 };

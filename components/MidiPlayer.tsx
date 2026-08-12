@@ -372,6 +372,8 @@ export const MidiPlayer: React.FC<MidiPlayerProps> = ({ midiBytes, fileName, hum
               <button
                 key={bars}
                 onClick={() => changeLoopBars(bars)}
+                aria-pressed={loopBars === bars}
+                aria-label={`Loop ${bars} bars`}
                 className={`min-h-9 min-w-11 rounded-md border px-2 text-xs font-semibold transition-colors ${
                   loopBars === bars
                     ? `border-slate-500 ${text} bg-slate-950/70`
@@ -397,6 +399,8 @@ export const MidiPlayer: React.FC<MidiPlayerProps> = ({ midiBytes, fileName, hum
                 setMasterVolume(value);
                 engine.setMasterVolume(value);
               }}
+              aria-label="Master volume"
+              aria-valuetext={`${Math.round(masterVolume * 100)} percent`}
               className={`h-2 w-full cursor-pointer appearance-none rounded-lg bg-slate-800 ${accent}`}
             />
             <span className="w-10 shrink-0 text-right text-xs text-slate-400">{Math.round(masterVolume * 100)}</span>
@@ -432,6 +436,7 @@ export const MidiPlayer: React.FC<MidiPlayerProps> = ({ midiBytes, fileName, hum
                     <select
                       value={setting.instrument}
                       onChange={e => updateTrack(index, { instrument: e.target.value as InstrumentId })}
+                      aria-label={`Instrument for ${track.name}`}
                       className="min-h-9 w-full rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-200 outline-none focus:border-slate-500 sm:w-44"
                     >
                       {groupedInstruments.map(({ group, items }) => (
@@ -449,6 +454,8 @@ export const MidiPlayer: React.FC<MidiPlayerProps> = ({ midiBytes, fileName, hum
                       step={0.01}
                       value={setting.volume}
                       onChange={e => updateTrack(index, { volume: parseFloat(e.target.value) })}
+                      aria-label={`Volume for ${track.name}`}
+                      aria-valuetext={`${Math.round(setting.volume * 100)} percent`}
                       className={`h-2 w-full cursor-pointer appearance-none rounded-lg bg-slate-800 ${accent}`}
                     />
                   </div>
