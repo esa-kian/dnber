@@ -7,6 +7,9 @@ type MidiPlayerProps = {
   midiBytes: Uint8Array | null;
   fileName: string;
   humanize: number;
+  /** Instrument choices to adopt, keyed by track name (from a preset or history). */
+  mixPreset: Record<string, TrackSettings> | null;
+  onMixChange: (mix: Record<string, TrackSettings>) => void;
   accent: string; // tailwind accent-* class for range inputs
   text: string; // tailwind text-* class
   solid: string; // tailwind bg-* class
@@ -70,7 +73,7 @@ function formatTime(seconds: number): string {
   return `${minutes}:${String(safe % 60).padStart(2, '0')}`;
 }
 
-export const MidiPlayer: React.FC<MidiPlayerProps> = ({ midiBytes, fileName, humanize, accent, text, solid, button, shadow }) => {
+export const MidiPlayer: React.FC<MidiPlayerProps> = ({ midiBytes, fileName, humanize, mixPreset, onMixChange, accent, text, solid, button, shadow }) => {
   const engineRef = useRef<MidiAudioEngine | null>(null);
   const [song, setSong] = useState<ParsedMidi | null>(null);
   const [settings, setSettings] = useState<TrackSettings[]>([]);
@@ -104,12 +107,25 @@ export const MidiPlayer: React.FC<MidiPlayerProps> = ({ midiBytes, fileName, hum
 
   // Instrument/volume/mute choices survive a recompose, keyed by track name
   const mixRef = useRef(new Map<string, TrackSettings>());
+  const reportMix = useRef(onMixChange);
+  useEffect(() => {
+    reportMix.current = onMixChange;
+  }, [onMixChange]);
+
   useEffect(() => {
     settings.forEach((setting, index) => {
       const track = song?.tracks[index];
       if (track) mixRef.current.set(`${track.name}#${index}`, setting);
     });
+    if (song) reportMix.current(Object.fromEntries(mixRef.current));
   }, [settings, song]);
+
+  // A preset or history entry brings its own instrument choices. This runs
+  // before the reload effect below, so the incoming mix is already in place.
+  useEffect(() => {
+    if (!mixPreset) return;
+    mixRef.current = new Map(Object.entries(mixPreset));
+  }, [mixPreset]);
 
   // Swap in a freshly composed file without interrupting playback
   useEffect(() => {

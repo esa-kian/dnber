@@ -1,3 +1,7 @@
+export type DnbMode = 'ambient' | 'jungle' | 'liquid' | 'dancefloor' | 'jumpup' | 'neurofunk';
+export type AppMode = DnbMode | 'hypnotic';
+export type MainGenre = 'dnb' | 'hypnotic';
+
 export enum NoteDuration {
   Whole = 1,
   Half = 0.5,

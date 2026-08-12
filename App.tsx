@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { DancefloorConfig, GeneratorConfig, GenerationStatus, HypnoticConfig, JungleConfig, JumpUpConfig, LiquidConfig, NeurofunkConfig } from './types';
+import { AppMode, DancefloorConfig, DnbMode, GeneratorConfig, GenerationStatus, HypnoticConfig, JungleConfig, JumpUpConfig, LiquidConfig, MainGenre, NeurofunkConfig } from './types';
 import { generateAmbientDnB } from './services/generator';
 import { generateDancefloor } from './services/dancefloorGenerator';
 import { generateHypnoticTechno } from './services/hypnoticGenerator';
@@ -12,10 +12,24 @@ import { MidiPlayer } from './components/MidiPlayer';
 import { seedRandom } from './utils/random';
 import { setSwing } from './utils/groove';
 import { setHumanize } from './utils/humanize';
-
-type DnbMode = 'ambient' | 'jungle' | 'liquid' | 'dancefloor' | 'jumpup' | 'neurofunk';
-type AppMode = DnbMode | 'hypnotic';
-type MainGenre = 'dnb' | 'hypnotic';
+import { TrackSettings } from './services/audioEngine';
+import {
+  HistoryEntry,
+  HISTORY_LIMIT,
+  SavedPreset,
+  SessionState,
+  STARTERS,
+  decodeSession,
+  describeSession,
+  encodeSession,
+  loadHistory,
+  loadPresets,
+  newId,
+  sameSession,
+  starterToSession,
+  storeHistory,
+  storePresets
+} from './utils/session';
 
 const KEYS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const GUIDE_URL = 'https://github.com/esa-kian/dnber/blob/main/README.md';
@@ -153,6 +167,28 @@ const DiceIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.2" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.2" fill="currentColor"/><circle cx="15.5" cy="8.5" r="1.2" fill="currentColor"/><circle cx="8.5" cy="15.5" r="1.2" fill="currentColor"/></svg>
 );
 
+const SaveIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+);
+
+const LinkIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+);
+
+const TrashIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+);
+
+function timeAgo(at: number): string {
+  const seconds = Math.max(0, Math.round((Date.now() - at) / 1000));
+  if (seconds < 60) return 'just now';
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.round(hours / 24)}d ago`;
+}
+
 const GuideIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z"/></svg>
 );
@@ -285,6 +321,11 @@ export default function App() {
   const [seed, setSeed] = useState(() => Math.floor(Math.random() * 0xffffffff));
   const [swing, setSwingAmount] = useState(0);
   const [humanize, setHumanizeAmount] = useState(0.45);
+  const [mix, setMix] = useState<Record<string, TrackSettings>>({});
+  const [mixPreset, setMixPreset] = useState<Record<string, TrackSettings> | null>(null);
+  const [presets, setPresets] = useState<SavedPreset[]>([]);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [shareNote, setShareNote] = useState('');
 
   const selectMainGenre = (genre: MainGenre) => {
     setMode(genre === 'hypnotic' ? 'hypnotic' : lastDnbMode);
@@ -294,6 +335,99 @@ export default function App() {
     setMode(nextMode);
     setLastDnbMode(nextMode);
   };
+
+  const session: SessionState = {
+    mode,
+    configs: {
+      ambient: config,
+      neurofunk: neuroConfig,
+      jungle: jungleConfig,
+      liquid: liquidConfig,
+      dancefloor: dancefloorConfig,
+      jumpup: jumpUpConfig,
+      hypnotic: hypnoticConfig
+    },
+    seed,
+    swing,
+    humanize,
+    mix
+  };
+
+  // The live session drives history and presets, but must not retrigger them
+  const sessionRef = useRef(session);
+  useEffect(() => {
+    sessionRef.current = session;
+  });
+
+  const applySession = useCallback((next: SessionState) => {
+    setMode(next.mode);
+    if (next.mode !== 'hypnotic') setLastDnbMode(next.mode);
+    setConfig(next.configs.ambient);
+    setNeuroConfig(next.configs.neurofunk);
+    setJungleConfig(next.configs.jungle);
+    setLiquidConfig(next.configs.liquid);
+    setDancefloorConfig(next.configs.dancefloor);
+    setJumpUpConfig(next.configs.jumpup);
+    setHypnoticConfig(next.configs.hypnotic);
+    setSeed(next.seed);
+    setSwingAmount(next.swing);
+    setHumanizeAmount(next.humanize);
+    setMix(next.mix);
+    // A fresh object each time, so the player always adopts the incoming mix
+    setMixPreset({ ...next.mix });
+  }, []);
+
+  // Stored presets, past takes, and a session handed over in the link
+  useEffect(() => {
+    setPresets(loadPresets());
+    setHistory(loadHistory());
+
+    const shared = window.location.hash.replace(/^#s=/, '');
+    if (shared && shared !== window.location.hash) {
+      const restored = decodeSession(shared, sessionRef.current);
+      if (restored) applySession(restored);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const rememberTake = useCallback((state: SessionState) => {
+    setHistory(current => {
+      if (current[0] && sameSession(current[0].state, state)) return current;
+      const next = [{ id: newId(), at: Date.now(), state }, ...current].slice(0, HISTORY_LIMIT);
+      storeHistory(next);
+      return next;
+    });
+  }, []);
+
+  const savePreset = useCallback(() => {
+    const name = window.prompt('Name this preset', describeSession(sessionRef.current));
+    if (!name) return;
+    setPresets(current => {
+      const next = [{ id: newId(), name: name.slice(0, 60), savedAt: Date.now(), state: sessionRef.current }, ...current];
+      storePresets(next);
+      return next;
+    });
+  }, []);
+
+  const deletePreset = useCallback((id: string) => {
+    setPresets(current => {
+      const next = current.filter(preset => preset.id !== id);
+      storePresets(next);
+      return next;
+    });
+  }, []);
+
+  const copyShareLink = useCallback(async () => {
+    const url = `${window.location.origin}${window.location.pathname}#s=${encodeSession(sessionRef.current)}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareNote('Link copied');
+    } catch {
+      window.location.hash = `s=${encodeSession(sessionRef.current)}`;
+      setShareNote('Link is in the address bar');
+    }
+    window.setTimeout(() => setShareNote(''), 2500);
+  }, []);
 
   // One composition at a time; changes that land mid-run are coalesced into a re-run
   const runState = useRef({ running: false, pending: false });
@@ -342,6 +476,7 @@ export default function App() {
       downloadUrlRef.current = url;
       setDownloadUrl(url);
       setMidiBytes(bytes);
+      rememberTake(sessionRef.current);
       setStatus({ isGenerating: false, progress: 100, message: 'Live' });
     } catch (e) {
       console.error(e);
@@ -353,7 +488,7 @@ export default function App() {
         void latestCompose.current();
       }
     }
-  }, [config, dancefloorConfig, hypnoticConfig, jungleConfig, jumpUpConfig, liquidConfig, mode, neuroConfig, seed, swing, humanize]);
+  }, [config, dancefloorConfig, hypnoticConfig, jungleConfig, jumpUpConfig, liquidConfig, mode, neuroConfig, seed, swing, humanize, rememberTake]);
 
   // A queued re-run must use the newest settings, not the closure that queued it
   const latestCompose = useRef(compose);
@@ -1394,6 +1529,72 @@ export default function App() {
           <div className="flex flex-col space-y-6">
             <div className="rounded-lg border border-slate-800/80 bg-slate-900/80 p-5 shadow-2xl shadow-black/20">
               <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-lg font-medium text-slate-200">Presets</h3>
+                <span className="text-xs text-slate-500">{shareNote || 'Start here'}</span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {STARTERS.map(starter => (
+                  <button
+                    key={starter.name}
+                    type="button"
+                    onClick={() => applySession(starterToSession(starter, sessionRef.current))}
+                    className="min-h-14 rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-left transition-all hover:border-slate-600 hover:bg-slate-900"
+                  >
+                    <span className="block text-sm font-semibold text-slate-200">{starter.name}</span>
+                    <span className="mt-0.5 block text-xs text-slate-500">{starter.hint}</span>
+                  </button>
+                ))}
+              </div>
+
+              {presets.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <span className="text-xs uppercase tracking-wide text-slate-500">Saved</span>
+                  {presets.map(preset => (
+                    <div key={preset.id} className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => applySession(preset.state)}
+                        className="flex min-h-11 flex-1 items-center justify-between rounded-lg border border-slate-800 bg-slate-950/70 px-3 text-left transition-colors hover:border-slate-600"
+                      >
+                        <span className="truncate text-sm text-slate-200">{preset.name}</span>
+                        <span className="ml-2 shrink-0 text-xs text-slate-500">{describeSession(preset.state)}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deletePreset(preset.id)}
+                        aria-label={`Delete preset ${preset.name}`}
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-slate-800 text-slate-500 transition-colors hover:border-rose-500/60 hover:text-rose-300"
+                      >
+                        <TrashIcon />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-4 flex gap-2">
+                <button
+                  type="button"
+                  onClick={savePreset}
+                  className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-slate-700 text-sm font-semibold text-slate-300 transition-colors hover:border-slate-500 hover:text-slate-100"
+                >
+                  <SaveIcon />
+                  Save current
+                </button>
+                <button
+                  type="button"
+                  onClick={copyShareLink}
+                  className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-slate-700 text-sm font-semibold text-slate-300 transition-colors hover:border-slate-500 hover:text-slate-100"
+                >
+                  <LinkIcon />
+                  Copy link
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-800/80 bg-slate-900/80 p-5 shadow-2xl shadow-black/20">
+              <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-lg font-medium text-slate-200">MIDI Routing</h3>
                 <span className={`text-sm font-semibold ${modeTheme.text}`}>{modeTheme.label}</span>
               </div>
@@ -1439,12 +1640,48 @@ export default function App() {
                 <DiceIcon />
                 <span>New variation</span>
               </button>
+
+              {history.length > 1 && (
+                <div className="mt-4">
+                  <span className="text-xs uppercase tracking-wide text-slate-500">Recent takes</span>
+                  <div className="mt-2 max-h-56 space-y-1 overflow-y-auto pr-1">
+                    {history.map((entry, index) => {
+                      const current = index === 0;
+                      return (
+                        <button
+                          key={entry.id}
+                          type="button"
+                          onClick={() => applySession(entry.state)}
+                          className={`flex min-h-11 w-full items-center justify-between rounded-lg border px-3 text-left transition-colors ${
+                            current
+                              ? `${modeTheme.border} bg-slate-950/70`
+                              : 'border-slate-800 bg-slate-950/40 hover:border-slate-600'
+                          }`}
+                        >
+                          <span className="min-w-0">
+                            <span className={`block truncate text-sm ${current ? modeTheme.text : 'text-slate-300'}`}>
+                              {MODE_THEMES[entry.state.mode].label}
+                            </span>
+                            <span className="block truncate text-xs text-slate-500">{describeSession(entry.state)}</span>
+                          </span>
+                          <span className="ml-2 shrink-0 text-right text-xs text-slate-500">
+                            <span className="block font-mono">#{entry.state.seed.toString(16).slice(0, 6)}</span>
+                            <span className="block">{current ? 'playing' : timeAgo(entry.at)}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             <MidiPlayer
               midiBytes={midiBytes}
               fileName={downloadName}
               humanize={humanize}
+              mixPreset={mixPreset}
+              onMixChange={setMix}
               accent={modeTheme.accent}
               text={modeTheme.text}
               solid={modeTheme.solid}
